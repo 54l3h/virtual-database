@@ -1,0 +1,81 @@
+{
+  "tables": [
+    {
+      "tableName": "users",
+      "PK": "id",
+      "columns": [
+        { "name": "id", "type": "SERIAL" },
+        { "name": "name", "type": "VARCHAR(50)" },
+        { "name": "email", "type": "VARCHAR(50)" },
+        { "name": "city", "type": "VARCHAR(50)" }
+      ]
+    },
+    {
+      "tableName": "products",
+      "PK": "id",
+      "columns": [
+        { "name": "id", "type": "SERIAL" },
+        { "name": "title", "type": "VARCHAR(50)" },
+        { "name": "price", "type": "INTEGER" }
+      ]
+    },
+    {
+      "name": "test",
+      "columns": [
+        { "name": "name", "type": "TEXT" },
+        { "name": "id", "type": "SERIAL" }
+      ]
+    },
+    {
+      "name": "students",
+      "columns": [
+        { "name": "name", "type": "TEXT" },
+        { "name": "id", "type": "SERIAL" }
+      ]
+    },
+    {
+      "name": "students",
+      "columns": [
+        { "name": "name", "type": "TEXT" },
+        { "name": "id", "type": "SERIAL" }
+      ]
+    },
+    {
+      "name": "students",
+      "columns": [
+        { "name": "name", "type": "TEXT" },
+        { "name": "id", "type": "SERIAL" }
+      ]
+    },
+    {
+      "name": "students",
+      "columns": [
+        { "name": "name", "type": "TEXT" },
+        { "name": "id", "type": "SERIAL" }
+      ]
+    },
+    {
+      "name": "students",
+      "columns": [
+        { "name": "name", "type": "TEXT" },
+        { "name": "id", "type": "SERIAL" }
+      ]
+    },
+    {
+      "name": "newTable",
+      "columns": [
+        { "name": "name", "type": "TEXT" },
+        { "name": "id", "type": "SERIAL" }
+      ]
+    },
+    {
+      "name": "newTablee",
+      "columns": [
+        { "name": "name", "type": "TEXT" },
+        { "name": "id", "type": "SERIAL" }
+      ]
+    },
+    { "name": "newTableee", "columns": [] },
+    { "name": "newdatabase", "columns": [] }
+  ]
+}
