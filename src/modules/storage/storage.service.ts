@@ -11,7 +11,12 @@ import type {
   SelectAST,
   UpdateAST,
 } from 'src/common/types/ast.type';
-import type { ISchema, ITable, IColumn } from '../../common/types/schema.types';
+import type {
+  ISchema,
+  ITable,
+  IColumn,
+  Index,
+} from '../../common/types/schema.types';
 import * as readline from 'readline/promises';
 
 export interface IConnection {
@@ -294,6 +299,44 @@ export class StorageService {
   async insert(AST: InsertAST) {
     const data = await this.readTableData(AST.table);
 
+    console.log(AST.columns);
+    let i = 0;
+
+    if (AST.columns.length !== AST.values.length) {
+      throw new Error('INSERT has more target columns more than the values');
+    }
+
+    const indexesPaths: string[] = [];
+
+    for (const column of AST.columns) {
+      const isIndexed = await this.isIndexed(AST.table, column);
+
+      if (isIndexed === true) {
+        const indexFilePath = await this.getIndexFilePath(AST.table, column);
+        indexesPaths.push(indexFilePath); // add the paths here and append on them the new values
+        // read the index file and look if the updated value exist or not
+        // ! if exists throw an error
+
+        const fileStream = createReadStream(indexFilePath, {
+          encoding: 'utf-8',
+        });
+
+        const lines = readline.createInterface({ input: fileStream });
+
+        for await (const line of lines) {
+          const row = JSON.parse(line);
+
+          if (row.value === AST.values[i]) {
+            throw new Error(
+              'This value is already used and can not be used twice',
+            );
+          }
+        }
+
+        i++;
+      }
+    }
+
     const currentDB = await this.getCurrentDatabase();
 
     const dataFilePath = path.join(
@@ -303,20 +346,32 @@ export class StorageService {
       `${AST.table}.ndjson`,
     );
 
-    if (AST.columns.length !== AST.values.length) {
-      throw new Error('INSERT has more target columns more than the values');
-    }
-
     const insertionData = {};
 
     for (let i = 0; i < AST.columns.length; i++) {
       insertionData[AST.columns[i]] = AST.values[i];
     }
 
-    const line = JSON.stringify(insertionData) + '\n';
+    const insertedLine = JSON.stringify(insertionData) + '\n';
 
     try {
-      await fs.appendFile(dataFilePath, line, 'utf-8');
+      await fs.appendFile(dataFilePath, insertedLine, 'utf-8');
+      if (indexesPaths.length !== 0) {
+        for (let i = 0; i < indexesPaths.length; i++) {
+          const value = AST.values[i];
+          const { size: offset } = await fs.stat(dataFilePath);
+          const length = Buffer.byteLength(insertedLine);
+          const indexObj: Index = { value, offset, length };
+
+          const insertedIndexLine = indexObj;
+
+          await fs.appendFile(
+            indexesPaths[i],
+            JSON.stringify(insertedIndexLine) + '\n',
+            'utf-8',
+          );
+        }
+      }
     } catch (error) {
       throw new Error(`Insertion failed ${AST.table}: ${error.message}`);
     }
@@ -355,13 +410,21 @@ export class StorageService {
     // get the table data
   }
 
-  async isIndexed(tableName: string, columnName: string) {
+  async getIndexFilePath(tableName: string, columnName: string) {
+    const currentDB = await this.getCurrentDatabase();
     const indexFilePath = path.join(
       this.databasesPath,
+      currentDB,
       tableName,
-      columnName,
       `${columnName}_idx.ndjson`,
     );
+
+    return indexFilePath;
+  }
+
+  async isIndexed(tableName: string, columnName: string) {
+    const indexFilePath = await this.getIndexFilePath(tableName, columnName);
+    console.log(indexFilePath);
 
     try {
       await fs.access(indexFilePath);
@@ -371,8 +434,9 @@ export class StorageService {
     }
   }
 
-  async readIndexFile(indexFilePath: string) {
+  async readIndexFile(tableName: string, columnName: string) {
     const results: any[] = [];
+    const indexFilePath = await this.getIndexFilePath(tableName, columnName);
     try {
       const fileStream = createReadStream(indexFilePath, {
         encoding: 'utf-8',
@@ -381,8 +445,6 @@ export class StorageService {
       const lines = readline.createInterface({ input: fileStream });
 
       for await (const line of lines) {
-        // if(line.)
-
         results.push(JSON.parse(line));
       }
 

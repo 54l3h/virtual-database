@@ -16,8 +16,9 @@ export interface ITable {
 }
 
 export interface Index {
-  name: string;
-  column: string; // INDEX name
+  value: string | number;
+  offset: number;
+  length: number;
 }
 
 export interface ISchema {
