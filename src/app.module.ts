@@ -1,13 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ParserModule } from './parser/parser.module';
-import { TokenizerModule } from './tokenizer/tokenizer.module';
-import { ExecutorModule } from './executor/executor.module';
-import { StorageModule } from './storage/storage.module';
 import { ConfigModule } from '@nestjs/config';
-import { AstModule } from './ast/ast.module';
-import { SemanticAnalyzerModule } from './semantic-analyzer/semantic-analyzer.module';
+import { ParserModule } from './modules/parser/parser.module';
+import { TokenizerModule } from './modules/tokenizer/tokenizer.module';
+import { ExecutorModule } from './modules/executor/executor.module';
+import { StorageModule } from './modules/storage/storage.module';
+import { SemanticAnalyzerModule } from './modules/semantic-analyzer/semantic-analyzer.module';
 
 @Module({
   imports: [
@@ -16,7 +15,6 @@ import { SemanticAnalyzerModule } from './semantic-analyzer/semantic-analyzer.mo
     ExecutorModule,
     StorageModule,
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
-    AstModule,
     SemanticAnalyzerModule,
   ],
   controllers: [AppController],

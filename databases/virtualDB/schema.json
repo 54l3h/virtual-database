@@ -1,0 +1,16 @@
+{
+  "tables": [
+    {
+      "name": "students",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "autoIncrement": true,
+          "primaryKey": true
+        },
+        { "name": "email", "type": "VARCHAR", "length": 255, "unique": true }
+      ]
+    }
+  ]
+}
