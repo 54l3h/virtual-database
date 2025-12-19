@@ -9,7 +9,8 @@
           "autoIncrement": true,
           "primaryKey": true
         },
-        { "name": "email", "type": "VARCHAR", "length": 255, "unique": true }
+        { "name": "email", "type": "VARCHAR", "length": 255, "unique": true },
+        { "name": "age", "type": "VARCHAR" }
       ]
     }
   ]

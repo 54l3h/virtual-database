@@ -1,6 +1,7 @@
 import { TokenType } from '../enums/token-type.enum';
 import { IColumn } from './schema.types';
 import { WhereClause } from './query.types';
+import { DataType } from '../enums/data-type.enum';
 
 export interface BaseAST {
   type: TokenType;
@@ -18,7 +19,8 @@ export interface InsertAST extends BaseAST {
   type: TokenType.INSERT;
   table: string;
   columns: string[];
-  values: any;
+  values: any[];
+  rowCount: number;
 }
 
 export interface UpdateAST extends BaseAST {
@@ -59,6 +61,23 @@ export interface DropDatabaseAST extends BaseAST {
   name: string;
 }
 
+export interface AlterDatabaseAST extends BaseAST {
+  type: TokenType.ALTER;
+  structure: TokenType.DATABASE;
+  name: string;
+  action: 'ADD' | 'DROP';
+}
+
+export interface AlterTableAST extends BaseAST {
+  type: TokenType.ALTER;
+  structure: TokenType.TABLE;
+  name: string;
+  columnName?: string;
+  dataType?: DataType;
+  // updates?: [];
+  action: 'ADD' | 'DROP';
+}
+
 export type AST =
   | SelectAST
   | InsertAST
@@ -67,4 +86,6 @@ export type AST =
   | CreateTableAST
   | CreateDatabaseAST
   | DropTableAST
-  | DropDatabaseAST;
+  | DropDatabaseAST
+  | AlterDatabaseAST
+  | AlterTableAST;

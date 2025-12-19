@@ -35,4 +35,8 @@ export class SemanticAnalyzerService {
 
     return true;
   }
+
+  async checkDatabaseExistence(databaseName: string): Promise<Boolean> {
+    return await this.storageService.checkDatabaseExistence(databaseName);
+  }
 }

@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { IToken } from '../../common/types/token.types';
-import { Operator } from 'src/common/enums/operator.enum';
-import { KEYWORDS, TokenType } from 'src/common/enums/token-type.enum';
+import { TokenType } from 'src/common/enums/token-type.enum';
 import { DataType } from 'src/common/enums/data-type.enum';
 
 @Injectable()
@@ -24,7 +23,7 @@ export class TokenizerService {
     const chars = source.split('');
 
     while (chars.length > 0) {
-      if (chars[0] === ' ') {
+      if ([' ', '\n', '\t'].includes(chars[0])) {
         chars.shift();
       } else if (chars[0] === '*') {
         tokens.push({ type: TokenType.ASTERISK, value: chars.shift()! });
@@ -151,6 +150,10 @@ export class TokenizerService {
             tokens.push({ type: TokenType.DATABASE, value: word });
             break;
 
+          case TokenType.COLUMN:
+            tokens.push({ type: TokenType.COLUMN, value: word });
+            break;
+
           case TokenType.UPDATE:
             tokens.push({ type: TokenType.UPDATE, value: word });
             break;
@@ -178,6 +181,9 @@ export class TokenizerService {
             break;
           case TokenType.UNIQUE:
             tokens.push({ type: TokenType.UNIQUE, value: word });
+            break;
+          case TokenType.ADD:
+            tokens.push({ type: TokenType.ADD, value: word });
             break;
 
           // it means you are going to send an datatype

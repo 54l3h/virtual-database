@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { createReadStream, readFile } from 'fs';
+import { createReadStream, read, readFile } from 'fs';
 import * as fs from 'fs/promises';
 import path from 'path';
 import { Operator } from '../../common/enums/operator.enum';
 import { DataType } from '../../common/enums/data-type.enum';
 import type {
+  AlterDatabaseAST,
+  AlterTableAST,
   CreateDatabaseAST,
   CreateTableAST,
+  DeleteAST,
+  DropDatabaseAST,
+  DropTableAST,
   InsertAST,
   SelectAST,
   UpdateAST,
@@ -239,14 +244,92 @@ export class StorageService {
     }
   }
 
+  // You can select one row (You will try to use index here)
+  // You can select many rows
   async select(AST: SelectAST) {
-    const tableData = await this.readTableData(AST.table);
+    // look at the pk file like the id_idx.ndjson
+    // gather the offsets and lengths into array of objects and then destruct them and itereate with them into the data file
+    const currentDB = await this.getCurrentDatabase();
+    const schema = await this.readCurrentDBSchema();
+
+    const dataFilePath = path.join(
+      this.databasesPath,
+      currentDB,
+      AST.table,
+      `${AST.table}.ndjson`,
+    );
+
+    console.log({ schema });
+
+    let pkName: string = '';
+
+    const table = schema.tables.forEach((table) => {
+      if (table.name === AST.table) {
+        for (const col of table.columns) {
+          if (col.primaryKey) {
+            pkName = col.name;
+          }
+        }
+      }
+    });
+
+    console.log({ pkName });
+
+    // now you got the pk name so you can access the index file to get the proper offsets
+
+    const pkIndexFilePath = await this.getIndexFilePath(AST.table, pkName);
+
+    const indexes: Record<string, any>[] = [];
+
+    const fileStream = createReadStream(pkIndexFilePath, { encoding: 'utf-8' });
+
+    const lines = readline.createInterface({
+      input: fileStream,
+    });
+
+    for await (const line of lines) {
+      const { offset, length } = JSON.parse(line);
+      indexes.push({ offset, length });
+    }
+
+    const whatWillBeReturned: Record<string, any>[] = [];
+
+    for (const { offset, length } of indexes) {
+      const buffer = Buffer.alloc(length);
+      const fileHandle = await fs.open(dataFilePath, 'r');
+      await fileHandle.read(buffer, 0, length, offset);
+      await fileHandle.close();
+      const line = buffer.toString('utf-8').trim();
+
+      const { deleted, ...data } = JSON.parse(line);
+
+      whatWillBeReturned.push(data);
+    }
+
+    // ! you finished retrieve all the existed data
+
+    // TODO: filtering the all data to get specific
+
+    // now you got the offsets you should get into the data file and get all the data
+
+    // you should prevent the deleted row from get retrieved
+
+    // const data = await this.readTableData(AST.table);
+    const tableData = whatWillBeReturned.filter((row) => {
+      return row.deleted === false;
+    });
+
+    // const set = new Set(tableData);
+
+    // console.log({ tableData });
+    // console.log({ set });
+
     const columns = AST.columns;
     const where = AST?.where;
 
     const { criterion, operator, value } = where || {};
 
-    let projectedData: {}[] = [];
+    let projectedData: Record<string, any>[] = [];
 
     if (columns.includes('*')) {
       projectedData = tableData;
@@ -260,11 +343,19 @@ export class StorageService {
       });
     }
 
+    console.log(projectedData);
+    
     let selectedData: {}[] = projectedData;
+    console.log({selectedData});
+    
+
+    console.log({ criterion });
 
     if (criterion) {
       switch (operator) {
         case Operator.EQUAL:
+          console.log('h');
+          
           selectedData = projectedData.filter((row) => {
             return row[`${criterion}`] === value;
           });
@@ -296,49 +387,10 @@ export class StorageService {
     return selectedData;
   }
 
+  async selectAfterIndexing(AST: SelectAST) {}
+
   async insert(AST: InsertAST) {
-    const data = await this.readTableData(AST.table);
-
-    console.log(AST.columns);
-    let i = 0;
-
-    if (AST.columns.length !== AST.values.length) {
-      throw new Error('INSERT has more target columns more than the values');
-    }
-
-    const indexesPaths: string[] = [];
-
-    for (const column of AST.columns) {
-      const isIndexed = await this.isIndexed(AST.table, column);
-
-      if (isIndexed === true) {
-        const indexFilePath = await this.getIndexFilePath(AST.table, column);
-        indexesPaths.push(indexFilePath); // add the paths here and append on them the new values
-        // read the index file and look if the updated value exist or not
-        // ! if exists throw an error
-
-        const fileStream = createReadStream(indexFilePath, {
-          encoding: 'utf-8',
-        });
-
-        const lines = readline.createInterface({ input: fileStream });
-
-        for await (const line of lines) {
-          const row = JSON.parse(line);
-
-          if (row.value === AST.values[i]) {
-            throw new Error(
-              'This value is already used and can not be used twice',
-            );
-          }
-        }
-
-        i++;
-      }
-    }
-
     const currentDB = await this.getCurrentDatabase();
-
     const dataFilePath = path.join(
       this.databasesPath,
       currentDB,
@@ -346,68 +398,635 @@ export class StorageService {
       `${AST.table}.ndjson`,
     );
 
-    const insertionData = {};
+    let rows: any[][] = [];
 
-    for (let i = 0; i < AST.columns.length; i++) {
-      insertionData[AST.columns[i]] = AST.values[i];
+    console.log(AST.columns.length);
+
+    const columnCount = AST.columns.length;
+    console.log({ columnCount });
+
+    for (let i = 0; i < AST.values.length; i += columnCount) {
+      rows.push(AST.values.slice(i, i + columnCount));
     }
 
-    const insertedLine = JSON.stringify(insertionData) + '\n';
+    // rows => [ [val1,val2], [val1,val2], [val1,val2] ]
+    for (const rowValues of rows) {
+      if (AST.columns.length !== rowValues.length) {
+        throw new Error('INSERT has more target columns than expressions');
+      }
 
-    try {
+      for (let i = 0; i < AST.columns.length; i++) {
+        const column = AST.columns[i];
+        const value = rowValues[i];
+
+        if (await this.isIndexed(AST.table, column)) {
+          const indexPath = await this.getIndexFilePath(AST.table, column);
+          const fileStream = createReadStream(indexPath, { encoding: 'utf-8' });
+          const lines = readline.createInterface({ input: fileStream });
+
+          for await (const line of lines) {
+            const { value: existingValue } = JSON.parse(line);
+            if (existingValue === value) {
+              throw new Error(`Value '${value}' already exist`);
+            }
+          }
+        }
+      }
+
+      const row: Record<string, any> = { deleted: false };
+      for (let i = 0; i < AST.columns.length; i++) {
+        row[AST.columns[i]] = rowValues[i];
+      }
+
+      const insertedLine = JSON.stringify(row) + '\n';
+      const { size: offset } = await fs.stat(dataFilePath);
       await fs.appendFile(dataFilePath, insertedLine, 'utf-8');
-      if (indexesPaths.length !== 0) {
-        for (let i = 0; i < indexesPaths.length; i++) {
-          const value = AST.values[i];
-          const { size: offset } = await fs.stat(dataFilePath);
-          const length = Buffer.byteLength(insertedLine);
-          const indexObj: Index = { value, offset, length };
 
-          const insertedIndexLine = indexObj;
-
+      const length = Buffer.byteLength(insertedLine);
+      for (let i = 0; i < AST.columns.length; i++) {
+        if (await this.isIndexed(AST.table, AST.columns[i])) {
+          const indexPath = await this.getIndexFilePath(
+            AST.table,
+            AST.columns[i],
+          );
+          const indexEntry = { value: rowValues[i], offset, length };
           await fs.appendFile(
-            indexesPaths[i],
-            JSON.stringify(insertedIndexLine) + '\n',
+            indexPath,
+            JSON.stringify(indexEntry) + '\n',
             'utf-8',
           );
         }
       }
-    } catch (error) {
-      throw new Error(`Insertion failed ${AST.table}: ${error.message}`);
     }
   }
 
   async update(AST: UpdateAST) {
-    console.log('update');
+    /**
+     * TODO: check the new values types and convert them to proper data types by updating the updates columns into the AST
+     */
+
+    let newUpdatingObj: Record<string, any> = {};
+
+    // convert the values types
+    for (let [column, value] of Object.entries(AST.updates)) {
+      newUpdatingObj[column] = !isNaN(value) ? Number(value) : String(value);
+    }
+
+    AST.updates = newUpdatingObj;
+    if (AST.where) {
+      AST.where.value = !isNaN(AST.where.value as any)
+        ? Number(AST.where.value)
+        : String(AST.where.value);
+    }
+
+    console.log({ updates: AST.updates });
+
+    // AST.table => GET TABLE NAME
+    // GET THE SCHEMA FILE TO KNOW THE COLUMNS WHICH ARE CONSIDERED AS INDEXES LIKE:
+    // (COLUMNS WITH UNIQUE=TRUE) & (COLUMNS WITH PRIMARYKEY=TRUE)
+    // THEN GET THE INDEXES FILES TO UPDATE THEM AND REMOVE THE OLD ROWS WHICH POINT TO THE OLD OFFSETS
+    // AND INSERT THE NEW ROW WHICH POINTS TO THE NEW ROW IN THE DATAFILE WITH THE CORRECT OFFSET
+    const schema = await this.readCurrentDBSchema();
+    const currentDB = await this.getCurrentDatabase();
+    const dataFilePath = path.join(
+      this.databasesPath,
+      currentDB,
+      AST.table,
+      `${AST.table}.ndjson`,
+    );
+
+    const indexes: Record<string, any>[] = [];
+
+    const table = schema.tables.map((table) => {
+      for (const column of table.columns) {
+        if (column.primaryKey || column.unique) {
+          indexes.push(column);
+        }
+      }
+    });
+
+    const indexesNames = indexes.map((index) => {
+      return index.name;
+    });
+
+    // does the criterion considered as column index or not if yes look at the index file to check if it exists or not
+    // you actuall get the indexesNames for the table
+    // now you will check if it includes the name of the criterion
+
+    // if it considered you will look up quickly into the index file
+    console.log(indexesNames.includes(AST.where?.criterion));
+
+    // desired line which will be updated
+    let desiredLine;
+    // To lookup quickly
+    // ! if it not exist throw an error
+    // if it exist take the row offset and length
+    if (indexesNames.includes(AST.where?.criterion)) {
+      const indexPath = await this.getIndexFilePath(
+        AST.table,
+        AST.where?.criterion!,
+      );
+
+      const fileStream = createReadStream(indexPath, { encoding: 'utf-8' });
+
+      const lines = readline.createInterface({
+        input: fileStream,
+      });
+
+      let found = false;
+
+      for await (const line of lines) {
+        const parsedLine = JSON.parse(line);
+
+        const isMatch =
+          typeof parsedLine.value === 'number'
+            ? parsedLine.value === Number(AST.where?.value)
+            : String(parsedLine.value) === String(AST.where?.value);
+
+        if (isMatch) {
+          found = true;
+          desiredLine = parsedLine;
+          break;
+        }
+      }
+
+      if (!found) {
+        throw new Error('This record is not exist');
+      }
+    }
+
+    console.log({ desiredLine });
+
+    // now you gonna update
+    // you have the indexes files paths
+    // and you have the data file
+    // you need to get to the row and clone it if exist and then duplicate it with the deleted:true and make another one with the same pk and then mark deleted: false and save the new offset and length
+    const { offset, length } = desiredLine;
+    // after you get the offset and length you shlould read the line from the data file how? by stream the file
+
+    const buffer = Buffer.alloc(length);
+    const fileHandle = await fs.open(dataFilePath, 'r');
+    await fileHandle.read(buffer, 0, length, offset);
+    await fileHandle.close();
+
+    const line = buffer.toString('utf-8').trim();
+
+    // this line includes the columns names that should be deleted with the values
+    // you should iterate into the lines to get the row if the each column with the value into this
+
+    let record = JSON.parse(line);
+    record.deleted = true; // mark it as deleted
+
+    //! append the same row as deleted
+    await fs.appendFile(dataFilePath, JSON.stringify(record) + '\n');
+
+    // append the new row with the new values
+    // then get the offset and length
+    const newRecord = { ...record, deleted: false, ...AST.updates };
+    // append them into the indexes files
+
+    const insertedRecord = JSON.stringify(newRecord) + '\n';
+    // get the length
+    const insertedRecordLength = Buffer.byteLength(insertedRecord);
+
+    // you get the record offset after append the row which is marked as deleted
+    // and append the new row
+    const { size: insertedRecordOffset } = await fs.stat(dataFilePath);
+    await fs.appendFile(dataFilePath, insertedRecord);
+
+    // now you got the indexes names
+    // after this you should get into the files to update it by remove the old offsets and insert the new row that points to the
+
+    // ! check the code below
+
+    for (const indexName of indexesNames) {
+      const newData: Record<string, any>[] = [];
+      const indexFilePath = await this.getIndexFilePath(AST.table, indexName);
+
+      console.log(indexFilePath);
+      // after you get the index file path
+      // you should enter the file and read it and search for the value that equal it
+      const fileStream = createReadStream(indexFilePath, { encoding: 'utf-8' });
+
+      const lines = readline.createInterface({
+        input: fileStream,
+      });
+
+      for await (const line of lines) {
+        const parsedLine = JSON.parse(line);
+
+        if (
+          parsedLine.value === record[indexName] &&
+          parsedLine.offset === offset &&
+          parsedLine.length === length
+        ) {
+          continue;
+        }
+        newData.push(parsedLine);
+      }
+
+      console.log({ newData });
+
+      const newIndex = {
+        value: newRecord[indexName],
+        offset: insertedRecordOffset,
+        length: insertedRecordLength,
+      };
+
+      newData.push(newIndex);
+
+      const insertedData = newData
+        .map((line) => {
+          return JSON.stringify(line);
+        })
+        .join('\n');
+
+      try {
+        await fs.writeFile(indexFilePath, insertedData + '\n');
+      } catch (error) {
+        throw new Error(
+          `An error occured while rewrite the index ${indexName} file`,
+        );
+      }
+    }
+
+    // console.log(indexesFilesPaths);
+
+    // after you get the indexesFilesPaths
+    // 1. if the critertion considered as index you will take a look into the index path to get the offset and length (to ckeck if the value existence if)
+    // 2. if the value already exist you will not able to use it again and you should throw an error
+    // TODO: ...
     console.log(AST);
+
+    // let's talk about the first scenario
+    // updating one column
+    // const [columnName, newValue] = Object.entries(AST.updates)[0]; // first column and only one
 
     // chech the indexes
     // get the column name
     // check the index file existence
     // if exists you should lookup for the new value if it exist or not
-    const [columnName, newValue] = Object.entries(AST.updates)[0]; // one column
 
-    const indexFilePath = path.join(
-      this.databasesPath,
-      AST.table,
-      columnName,
-      `${columnName}_idx.ndjson`,
-    );
-
-    const isIndexed = await this.isIndexed(AST.table, columnName);
+    // const isIndexed = await this.isIndexed(AST.table, columnName);
 
     // Check the updating value if it exists or not
-    if (isIndexed === true) {
-      // read the index file (stream)
-      // check the line which includes the value
-      // how index looks like?!
-      // {value:....,offset:....}
-    }
+    // if exists throw an error
+    // if not exist just add it
 
-    console.log(columnName);
+    // you will use it to read
+    // you will update it
+
+    // const currentDB = await this.getCurrentDatabase();
+
+    // const indexFilePath = path.join(
+    //   this.databasesPath,
+    //   currentDB,
+    //   AST.table,
+    //   `${columnName}_idx.ndjson`,
+    // );
+
+    // const dataFilePath = path.join(
+    //   this.databasesPath,
+    //   currentDB,
+    //   AST.table,
+    //   `${AST.table}.ndjson`,
+    // );
+
+    // check if the new value already exist or not
+    // if (isIndexed === true) {
+    //   // read the index file (stream)
+    //   // check the line which includes the value
+    //   // how index looks like?!
+    //   // {value:....,offset:....}
+
+    //   const fileStream = createReadStream(indexFilePath, { encoding: 'utf-8' });
+
+    //   const lines = readline.createInterface({ input: fileStream });
+
+    //   for await (const line of lines) {
+    //     const index: Index = JSON.parse(line);
+    //     if (index.value === newValue) {
+    //       throw new Error(
+    //         'This value is already used and can not be used twice',
+    //       );
+    //     }
+    //     // if didn't use before you should get offset of the row that we are going to update
+    //   }
+    // }
+
+    const isConditionColunmnIndexed = await this.isIndexed(
+      AST.table,
+      AST.where?.criterion as string,
+    );
+
+    // if it indexed you will lookup with the value to serch
+    // TODO: you should lookup first
+    // ? after you get the offset and length
+    // ! you should access the file and go to directly to the row and mark it as deleted
+    // * then you should add the new line in the email_idx.ndjson in your situation
+
+    let desiredRecord: Index = {} as Index;
+    // if (isConditionColunmnIndexed === true) {
+    //   const conditionColumnPath = path.join(
+    //     this.databasesPath,
+    //     currentDB,
+    //     AST.table,
+    //     `${AST.where?.criterion}_idx.ndjson`,
+    //   );
+
+    //   const fileStream = createReadStream(conditionColumnPath);
+
+    //   const lines = readline.createInterface({ input: fileStream });
+
+    //   for await (const line of lines) {
+    //     const record: Index = JSON.parse(line);
+
+    //     const isMatch =
+    //       typeof record.value === 'number'
+    //         ? record.value === Number(AST.where?.value)
+    //         : String(record.value) === String(AST.where?.value);
+
+    //     if (isMatch) {
+    //       desiredRecord = record;
+    //       break;
+    //     }
+    //   }
+
+    //   // if (!desiredRecord.value) {
+    //   //   throw new Error('This record is not exist to update');
+    //   // }
+    // }
+
+    // if (desiredRecord.value) {
+    //   const { offset, length } = desiredRecord;
+
+    //   // get into the data file to update it
+    //   // update the record by marking it as deleted
+    //   // append the new record with the new data
+    //   // append the new record with the new index with the new offset and length
+
+    //   // here
+    //   // const fileStream = createReadStream()
+
+    //   // const fd = fs.open(dataFilePath, 'r+');
+
+    //   // const { size } = await fs.stat(dataFilePath);
+    //   // const buffer = Buffer.alloc(size);
+
+    //   // const data = read(fd,buffer);
+
+    //   const fileStream = createReadStream(dataFilePath, {
+    //     start: offset - length,
+    //     end: offset - 1,
+    //     encoding: 'utf-8',
+    //   });
+
+    //   const lines = readline.createInterface({ input: fileStream });
+
+    //   let record;
+    //   // You will get one line only
+    //   for await (const line of lines) {
+    //     record = JSON.parse(line);
+    //   }
+
+    //   record['deleted'] = true;
+    // }
+
+    const insertionData = {};
+
+    const updating = {};
+
+    // const insertedLine = JSON.stringify(insertionData) + '\n';
+
+    // await fs.appendFile(dataFilePath, insertedLine, 'utf-8');
+
+    // if the new value didn't use before
+    // you will update the data file & the index
+    // if the column (indexed) you can get the offset
+    // after this you can cut from the offset till the length and replace it then update the offset and length
+    // in the datafile you will get the object offset from the index file and then went to the data file and change the obj directly
 
     // updates
     // get the table data
+  }
+
+  async delete(AST: DeleteAST) {
+    const { table, where } = AST;
+    const { criterion, operator, value } = where ?? {};
+
+    // criterion is the column name
+    // you will check on this column if it considered as an indexed column or not
+    // if it conisdered as indexed column
+
+    // TODO: Again
+    // after you get the table and appended the new row which is deleted
+    // 1- append the new row to the data file mark it as deleted
+    // 2- check the schema the pk column and the unique
+    // 3- go to the index files of them and then filter the deleted and save the file again
+
+    const tableData = await this.readTableData(table);
+
+    const deletedRows: any[] = [];
+    const remainingRows: any[] = [];
+
+    for (const row of tableData) {
+      const rowValue = row[criterion!];
+      const compareValue = isNaN(value as any) ? value : parseInt(value as any);
+
+      let isMatch = false;
+
+      // matching
+      // v2
+      switch (operator) {
+        case Operator.EQUAL:
+          isMatch = rowValue === compareValue!;
+          break;
+
+        case Operator.GREATER_THAN:
+          isMatch = rowValue > compareValue!;
+          break;
+
+        case Operator.GREATER_THAN_OR_EQUAL:
+          isMatch = rowValue >= compareValue!;
+          break;
+
+        case Operator.LESS_THAN:
+          isMatch = rowValue < compareValue!;
+          break;
+
+        case Operator.LESS_THAN_OR_EQUAL:
+          isMatch = rowValue <= compareValue!;
+          break;
+      }
+
+      if (isMatch) {
+        deletedRows.push(row);
+      } else {
+        remainingRows.push(row);
+      }
+    }
+
+    const currentDB = await this.getCurrentDatabase();
+    const dataFilePath = path.join(
+      this.databasesPath,
+      currentDB,
+      AST.table,
+      `${AST.table}.ndjson`,
+    );
+
+    // !TODO: gather the index files
+    // collect the index files
+    // you will delete the row from the index files
+    // and then mark the row as deleted by append the same row as deleted:true in the data file
+
+    for (const row of deletedRows) {
+      await fs.appendFile(
+        dataFilePath,
+        JSON.stringify({ ...row, deleted: true }) + '\n',
+      );
+    }
+
+    // after appending into the data file
+    // you should deleted the the rows from the index files
+    // via lookup at schema find the pk and unique
+    const schema: ISchema = await this.readCurrentDBSchema();
+
+    let indexes: Record<string, any>[] = [];
+
+    // you want to find the columns of the table where you are deleting the rows
+    const tables = schema.tables.map((table) => {
+      for (const column of table.columns) {
+        if (column.primaryKey || column.unique) {
+          indexes.push(column);
+        }
+      }
+    });
+
+    // now you got the indexes column
+    // you should get into the indexes files and then update them by delete the rows which point on the deleted rows
+
+    const indexesPaths: string[] = [];
+    for (const index of indexes) {
+      indexesPaths.push(await this.getIndexFilePath(AST.table, index.name));
+      const indexPath = await this.getIndexFilePath(AST.table, index.name);
+      // enter the file search for the value that deleted and remove it and then rewrite the file
+
+      const fileStream = createReadStream(indexPath, {
+        encoding: 'utf-8',
+      });
+
+      const lines = readline.createInterface({
+        input: fileStream,
+      });
+
+      const newIndexLines: any[] = [];
+
+      for await (const line of lines) {
+        const { value } = JSON.parse(line);
+        // console.log({ index });
+
+        let isDeleted = false;
+
+        for (const row of deletedRows) {
+          if (row[index.name] === value) {
+            isDeleted = true;
+            break;
+          }
+
+          if (!isDeleted) {
+            newIndexLines.push(line);
+          }
+        }
+      }
+      // console.log({ newIndexLines });
+
+      try {
+        fs.writeFile(indexPath, newIndexLines.join('\n') + '\n');
+      } catch (error) {
+        throw new Error('An error occured while trying to delete the rows');
+      }
+    }
+
+    return { success: true, message: 'deleted' };
+  }
+
+  async alterTable(AST: AlterTableAST) {
+    // you checked the existence
+    // get the schema file
+    // access the schema file
+    // add column to the table
+    // create index file if it primary key = true or unique = true
+
+    console.log(AST);
+
+    const currentDB = await this.getCurrentDatabase();
+    const schema: ISchema = await this.readCurrentDBSchema();
+
+    const newColumn: IColumn = {
+      name: AST.columnName as string,
+      type: AST.dataType as DataType,
+    };
+
+    const table = schema.tables.find((table) => table.name === AST.name);
+
+    table?.columns.push(newColumn);
+
+    await this.updateCurrentDBSchema(schema);
+
+    // console.log(schema);
+  }
+
+  async alterDatabase(AST: AlterDatabaseAST) {}
+
+  async dropDatabase(AST: DropDatabaseAST) {
+    const currentDB = await this.getCurrentDatabase();
+
+    if (AST.name === currentDB) {
+      throw new Error(
+        `You are not able to Drop this db (You are connected to this db now)`,
+      );
+    }
+
+    // Delete the database directory
+    const databaseDir = path.join(this.databasesPath, AST.name);
+
+    try {
+      await fs.rm(databaseDir, { recursive: true, force: true });
+    } catch (error) {
+      throw new Error(error);
+    }
+  }
+
+  async dropTable(AST: DropTableAST) {
+    // you just validated the existence of the table in the parser by using the lexical analyzer
+    const currentDB = await this.getCurrentDatabase();
+
+    // will be deleted
+    const tablePath = path.join(this.databasesPath, currentDB, AST.name);
+
+    // will be modified
+    const schemaPath = path.join(this.databasesPath, currentDB, 'schema.json');
+
+    try {
+      await fs.rm(tablePath, { recursive: true, force: true });
+    } catch (error) {
+      throw new Error(error);
+    }
+
+    const schema = await fs.readFile(schemaPath, 'utf-8');
+    const parsedSchema: ISchema = JSON.parse(schema);
+
+    const tableIndex = parsedSchema.tables.findIndex((table) => {
+      return table.name === AST.name;
+    });
+
+    parsedSchema.tables.splice(tableIndex);
+
+    try {
+      await fs.writeFile(schemaPath, JSON.stringify(parsedSchema));
+    } catch (error) {
+      throw new Error(error);
+    }
   }
 
   async getIndexFilePath(tableName: string, columnName: string) {
@@ -422,9 +1041,8 @@ export class StorageService {
     return indexFilePath;
   }
 
-  async isIndexed(tableName: string, columnName: string) {
+  private async isIndexed(tableName: string, columnName: string) {
     const indexFilePath = await this.getIndexFilePath(tableName, columnName);
-    console.log(indexFilePath);
 
     try {
       await fs.access(indexFilePath);
@@ -434,7 +1052,7 @@ export class StorageService {
     }
   }
 
-  async readIndexFile(tableName: string, columnName: string) {
+  private async readIndexFile(tableName: string, columnName: string) {
     const results: any[] = [];
     const indexFilePath = await this.getIndexFilePath(tableName, columnName);
     try {
@@ -535,8 +1153,6 @@ export class StorageService {
   //   await this.writeTableData(table, dataAfterDeletion);
   //   return dataAfterDeletion;
   // }
-
-  // ==================== HELPER METHODS ====================
 
   // private filterByCondition(
   //   data: any[],

@@ -12,6 +12,7 @@ export enum TokenType {
   WHERE = 'WHERE',
   SET = 'SET',
   INTO = 'INTO',
+  ADD = 'ADD',
   VALUES = 'VALUES',
   PRIMARY = 'PRIMARY',
   KEY = 'KEY',
@@ -20,6 +21,7 @@ export enum TokenType {
 
   TABLE = 'TABLE',
   DATABASE = 'DATABASE',
+  COLUMN = 'COLUMN',
 
   COMMA = 'COMMA',
   SEMI_COLON = 'SEMI_COLON',

@@ -14,6 +14,10 @@ import {
   InsertAST,
   CreateTableAST,
   CreateDatabaseAST,
+  DropDatabaseAST,
+  DropTableAST,
+  AlterDatabaseAST,
+  AlterTableAST,
 } from '../../common/types/ast.type';
 import { DataType } from 'src/common/enums/data-type.enum';
 
@@ -643,8 +647,16 @@ export class ParserService {
         this.pointer++;
         AST =
           this.tokens[this.pointer].type === TokenType.DATABASE
-            ? this.parseCreateDatabase()
+            ? await this.parseCreateDatabase()
             : await this.parseCreateTable();
+        break;
+
+      case TokenType.DROP:
+        this.pointer++;
+        AST =
+          this.tokens[this.pointer].type === TokenType.DATABASE
+            ? await this.parseDropDatabase()
+            : await this.parseDropTable();
         break;
 
       case TokenType.UPDATE:
@@ -657,6 +669,14 @@ export class ParserService {
         AST = await this.parseInsert();
         break;
 
+      case TokenType.ALTER:
+        this.pointer++;
+        AST =
+          this.tokens[this.pointer].type === TokenType.DATABASE
+            ? await this.parseAlterDatabase()
+            : await this.parseAlterTable();
+        break;
+
       default:
         throw new Error('Unsupported query type');
     }
@@ -664,7 +684,8 @@ export class ParserService {
     return AST;
   }
 
-  parseCreateDatabase(): CreateDatabaseAST {
+  // TODO: Use the semantic analyzer here
+  async parseCreateDatabase(): Promise<CreateDatabaseAST> {
     const AST: CreateDatabaseAST = {
       type: TokenType.CREATE,
       structure: TokenType.DATABASE,
@@ -795,6 +816,7 @@ export class ParserService {
       table: '',
       columns: [],
       values: [],
+      rowCount: 0,
     };
 
     if (!this.expect(TokenType.INTO)) {
@@ -825,40 +847,55 @@ export class ParserService {
       throw new Error(`Expected VALUES keyword`);
     }
 
-    if (!this.expect(TokenType.LPAREN_OPERATOR)) {
-      throw new Error(`Expected '('`);
+    let rowCount = 0;
+
+    while (this.tokens[this.pointer]?.type === TokenType.LPAREN_OPERATOR) {
+      if (!this.expect(TokenType.LPAREN_OPERATOR)) {
+        throw new Error(`Expected '('`);
+      }
+
+      let valueCount = 0;
+
+      while (!this.expect(TokenType.RPAREN_OPERATOR)) {
+        const token = this.tokens[this.pointer];
+
+        if (token.type === TokenType.NUMBER_LITERAL) {
+          this.pointer++;
+          AST.values.push(parseInt(token.value as string));
+        } else if (token.type === TokenType.STRING_LITERAL) {
+          this.pointer++;
+          AST.values.push(token.value as string);
+        } else if (token.type === TokenType.BOOLEAN_LITERAL) {
+          this.pointer++;
+          AST.values.push(token.value as boolean);
+        } else {
+          throw new Error(`Unexpected token type: ${token.type}`);
+        }
+
+        valueCount++;
+
+        if (this.tokens[this.pointer].type === TokenType.COMMA) {
+          this.pointer++;
+        }
+      }
+
+      if (valueCount !== AST.columns.length) {
+        throw new Error(`Value count doesn't match column count`);
+      }
+
+      rowCount++;
+
+      if (this.tokens[this.pointer]?.type === TokenType.COMMA) {
+        this.pointer++;
+      }
     }
 
-    const values: (string | number | boolean)[] = [];
-    while (!this.expect(TokenType.RPAREN_OPERATOR)) {
-      const token = this.tokens[this.pointer];
-
-      console.log(token);
-      console.log(token.type);
-
-      if (token.type === TokenType.NUMBER_LITERAL) {
-        this.pointer++;
-        values.push(parseInt(token.value as string));
-      } else if (token.type === TokenType.STRING_LITERAL) {
-        this.pointer++;
-        values.push(token.value as string);
-      } else if (token.type === TokenType.BOOLEAN_LITERAL) {
-        this.pointer++;
-        values.push(token.value as boolean);
-      } else {
-        throw new Error(`Expected ${token.type}`);
-      }
-      if (this.tokens[this.pointer].type === TokenType.COMMA) {
-        this.pointer++;
-      }
-    }
-    AST.values = values;
+    AST.rowCount = rowCount;
 
     if (!this.expect(TokenType.SEMI_COLON)) {
       throw new Error(`Expected ';'`);
     }
 
-    // Semantic validation
     const tableExists =
       await this.semanticAnalyzer.checkTableExistenceInCurrentDB(AST.table);
     if (!tableExists) {
@@ -892,20 +929,25 @@ export class ParserService {
       throw new Error(`Expected SET keyword`);
     }
 
-    // Parse SET clause
+    // collect the columns and look for which of them considered as an index
+    // if there is any column used as an index you should remove the row which points to the old offset and length
+    // and the append the new row
+    const columnsToCheck: string[] = [];
+
+    // Parse first column=value (required)
     if (!this.expect(TokenType.IDENTIFIER)) {
       throw new Error(`Expected column name`);
     }
-    const updatingColumn = this.tokens[this.pointer - 1].value as string;
+    let updatingColumn = this.tokens[this.pointer - 1].value as string;
+    columnsToCheck.push(updatingColumn);
 
     if (!this.expect(TokenType.COMPARISON_OPERATOR)) {
       throw new Error(`Expected '='`);
     }
 
-    const token = this.tokens[this.pointer]; // value
-
-    console.log({ fromInsert: token });
+    let token = this.tokens[this.pointer];
     let updatingValue;
+
     if (this.expect(TokenType.NUMBER_LITERAL)) {
       updatingValue = this.tokens[this.pointer - 1].value;
     } else if (this.expect(TokenType.STRING_LITERAL)) {
@@ -913,11 +955,38 @@ export class ParserService {
     } else if (this.expect(TokenType.BOOLEAN_LITERAL)) {
       updatingValue = this.tokens[this.pointer - 1].value;
     } else {
-      throw new Error(`Expected ${token.type}`);
+      throw new Error(`Expected value, got ${token.type}`);
     }
-    console.log({updatingValue});
-    
+
     AST.updates[updatingColumn] = updatingValue;
+
+    // Parse additional columns
+    while (this.expect(TokenType.COMMA)) {
+      if (!this.expect(TokenType.IDENTIFIER)) {
+        throw new Error(`Expected column name`);
+      }
+      updatingColumn = this.tokens[this.pointer - 1].value as string;
+      columnsToCheck.push(updatingColumn);
+
+      if (!this.expect(TokenType.COMPARISON_OPERATOR)) {
+        throw new Error(`Expected '='`);
+      }
+
+      token = this.tokens[this.pointer];
+
+      if (this.expect(TokenType.NUMBER_LITERAL)) {
+        updatingValue = this.tokens[this.pointer - 1].value;
+      } else if (this.expect(TokenType.STRING_LITERAL)) {
+        updatingValue = this.tokens[this.pointer - 1].value;
+      } else if (this.expect(TokenType.BOOLEAN_LITERAL)) {
+        updatingValue = this.tokens[this.pointer - 1].value;
+      } else {
+        throw new Error(`Expected value, got ${token.type}`);
+      }
+
+      AST.updates[updatingColumn] = updatingValue;
+    }
+
     // Parse WHERE clause (optional)
     if (this.expect(TokenType.WHERE)) {
       if (!this.expect(TokenType.IDENTIFIER)) {
@@ -940,22 +1009,18 @@ export class ParserService {
         operator: operator,
         value: conditionValue,
       };
+
+      columnsToCheck.push(conditionColumn);
     }
 
     if (!this.expect(TokenType.SEMI_COLON)) {
       throw new Error(`Expected ';'`);
     }
 
-    // Semantic validation
     const tableExists =
       await this.semanticAnalyzer.checkTableExistenceInCurrentDB(AST.table);
     if (!tableExists) {
       throw new Error(`Table ${AST.table} not exist`);
-    }
-
-    const columnsToCheck = [updatingColumn];
-    if (AST.where) {
-      columnsToCheck.push(AST.where.criterion);
     }
 
     const columnsExist = await this.semanticAnalyzer.checkColumnsExistence(
@@ -1124,6 +1189,137 @@ export class ParserService {
         );
       }
     }
+
+    return AST;
+  }
+
+  async parseDropDatabase(): Promise<DropDatabaseAST> {
+    const AST: DropDatabaseAST = {
+      type: TokenType.DROP,
+      structure: TokenType.DATABASE,
+      name: '',
+    };
+
+    if (!this.expect(TokenType.DATABASE)) {
+      throw new Error(`Expected ${TokenType.TABLE}`);
+    }
+
+    if (!this.expect(TokenType.IDENTIFIER)) {
+      throw new Error(`Expected ${TokenType.IDENTIFIER}`);
+    }
+    AST.name = this.tokens[this.pointer - 1].value as string;
+
+    // semantic analysis
+    // check database existence
+    const isExist = await this.semanticAnalyzer.checkDatabaseExistence(
+      AST.name,
+    );
+
+    if (!isExist) {
+      throw new Error(`Database ${AST.name} not exist`);
+    }
+
+    return AST;
+  }
+
+  async parseDropTable(): Promise<DropTableAST> {
+    const AST: DropTableAST = {
+      type: TokenType.DROP,
+      structure: TokenType.TABLE,
+      name: '',
+    };
+
+    if (!this.expect(TokenType.TABLE)) {
+      throw new Error(`Expected ${TokenType.TABLE}`);
+    }
+
+    if (!this.expect(TokenType.IDENTIFIER)) {
+      throw new Error(`Expected ${TokenType.IDENTIFIER}`);
+    }
+    AST.name = this.tokens[this.pointer - 1].value as string;
+
+    // semantic analysis
+    // check table existence
+    const isExist = await this.semanticAnalyzer.checkTableExistenceInCurrentDB(
+      AST.name,
+    );
+
+    if (!isExist) {
+      throw new Error(`Table ${AST.name} is not exist`);
+    }
+
+    return AST;
+  }
+
+  async parseAlterTable(): Promise<AlterTableAST> {
+    const AST: AlterTableAST = {
+      type: TokenType.ALTER,
+      structure: TokenType.TABLE,
+      name: '',
+      action: 'ADD',
+    };
+
+    if (!this.expect(TokenType.TABLE)) {
+      throw new Error(`Expected ${TokenType.TABLE}`);
+    }
+    AST.structure = this.tokens[this.pointer - 1].type as TokenType.TABLE;
+
+    if (!this.expect(TokenType.IDENTIFIER)) {
+      throw new Error(`Expected table name`);
+    }
+    AST.name = this.tokens[this.pointer - 1].value as string;
+
+    console.log({ AST });
+
+    if (!this.expect(TokenType.ADD) && !this.expect(TokenType.DROP)) {
+      throw new Error(`Expected ${TokenType.ADD} or ${TokenType.DROP}`);
+    }
+
+    AST.action = this.tokens[this.pointer - 1].value as 'ADD' | 'DROP';
+    console.log(this.tokens);
+
+    if (!this.expect(TokenType.COLUMN)) {
+      throw new Error(`Expected ${TokenType.COLUMN}`);
+    }
+
+    if (!this.expect(TokenType.IDENTIFIER)) {
+      throw new Error(`Expected ${TokenType.IDENTIFIER}`);
+    }
+    AST.columnName = this.tokens[this.pointer - 1].value as string;
+
+    if (!this.expect(TokenType.DATATYPE)) {
+      throw new Error(`Expected ${TokenType.DATATYPE}`);
+    }
+    AST.dataType = this.tokens[this.pointer - 1].value as DataType;
+
+    if (!this.expect(TokenType.SEMI_COLON)) {
+      throw new Error(`Expected ${TokenType.SEMI_COLON}`);
+    }
+
+    // SEMANTIC ANALYSIS
+    // Check the existence of the table & column
+
+    const isTableExist =
+      await this.semanticAnalyzer.checkTableExistenceInCurrentDB(AST.name);
+
+    if (!isTableExist) {
+      throw new Error(`Table ${AST.name} is not exist`);
+    }
+
+    const isColumnExist = await this.semanticAnalyzer.checkColumnExistence(
+      AST.name,
+      AST.columnName,
+    );
+
+    if (isColumnExist) {
+      throw new Error(`Column ${AST.columnName} is already exist`);
+    }
+
+    return AST;
+  }
+
+  async parseAlterDatabase(): Promise<AlterDatabaseAST> {
+    const AST: AlterDatabaseAST = {} as AlterDatabaseAST;
 
     return AST;
   }

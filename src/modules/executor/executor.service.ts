@@ -1,5 +1,4 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
-import { ExecuteSqlDto } from './dto/execute-sql.dto';
 import { StorageService } from 'src/modules/storage/storage.service';
 import { ParserService } from '../parser/parser.service';
 import { TokenType } from '../../common/enums/token-type.enum';
@@ -11,6 +10,10 @@ import {
   UpdateAST,
   CreateDatabaseAST,
   CreateTableAST,
+  DropDatabaseAST,
+  DropTableAST,
+  AlterDatabaseAST,
+  AlterTableAST,
 } from '../../common/types/ast.type';
 
 @Injectable()
@@ -21,9 +24,7 @@ export class ExecutorService {
     private readonly storage: StorageService,
   ) {}
 
-  async executeDDL(dto: ExecuteSqlDto) {
-    const { query } = dto;
-
+  async executeDDL(query: string) {
     const AST: AST = await this.parser.parse(query);
 
     let response;
@@ -40,7 +41,19 @@ export class ExecutorService {
         break;
 
       case TokenType.DROP:
-        // Handle DROP operations
+        if (AST.structure === TokenType.DATABASE) {
+          response = await this.storage.dropDatabase(AST as DropDatabaseAST);
+        } else if (AST.structure === TokenType.TABLE) {
+          response = await this.storage.dropTable(AST as DropTableAST);
+        }
+        break;
+
+      case TokenType.ALTER:
+        if (AST.structure === TokenType.DATABASE) {
+          response = await this.storage.alterDatabase(AST as AlterDatabaseAST);
+        } else if (AST.structure === TokenType.TABLE) {
+          response = await this.storage.alterTable(AST as AlterTableAST);
+        }
         break;
 
       default:
@@ -50,11 +63,8 @@ export class ExecutorService {
     return { success: true, response };
   }
 
-  async executeDML(dto: ExecuteSqlDto) {
-    const { query } = dto;
-
+  async executeDML(query: string) {
     const AST = await this.parser.parse(query);
-    console.log(AST);
 
     let response;
 
@@ -71,9 +81,9 @@ export class ExecutorService {
         response = await this.storage.update(AST as UpdateAST);
         break;
 
-      // case TokenType.DELETE:
-      //   response = await this.storage.delete(AST as DeleteAST);
-      //   break;
+      case TokenType.DELETE:
+        response = await this.storage.delete(AST as DeleteAST);
+        break;
 
       default:
         throw new Error('Unsupported DML operation');
