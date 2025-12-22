@@ -12,7 +12,6 @@ import {
   CreateTableAST,
   DropDatabaseAST,
   DropTableAST,
-  AlterDatabaseAST,
   AlterTableAST,
 } from '../../common/types/ast.type';
 
@@ -49,18 +48,15 @@ export class ExecutorService {
         break;
 
       case TokenType.ALTER:
-        if (AST.structure === TokenType.DATABASE) {
-          response = await this.storage.alterDatabase(AST as AlterDatabaseAST);
-        } else if (AST.structure === TokenType.TABLE) {
-          response = await this.storage.alterTable(AST as AlterTableAST);
-        }
+        response = await this.storage.alterTable(AST as AlterTableAST);
+
         break;
 
       default:
         throw new Error('Unsupported DDL operation');
     }
 
-    return { success: true, response };
+    return { success: true, ddl: query, ...response };
   }
 
   async executeDML(query: string) {
@@ -89,62 +85,6 @@ export class ExecutorService {
         throw new Error('Unsupported DML operation');
     }
 
-    return { success: true, response };
+    return { success: true, dml: query, ...response };
   }
-
-  // async select(AST: SelectAST) {
-  //   const response = await this.storage.select(
-  //     AST.columns,
-  //     AST.table,
-  //     AST.where?.criterion,
-  //     AST.where?.operator,
-  //     AST.where?.value,
-  //   );
-  //   return response;
-  // }
-
-  // async delete(AST: DeleteAST) {
-  //   const response = await this.storage.delete(AST);
-  //   return response;
-  // }
-
-  // async executeSelectStatement(query: string) {
-  //   // ! For SELECT statements
-
-  //   // 1. Tokenization
-  //   // 2. Parsing
-  //   // 3. Executor (Works on the Objects, Criteria, etc)
-  //   // 4. Storage Service (Working on the real files)
-
-  //   // TODO: Let's start with the tokenizer
-  //   const tokens: IToken[] = this.tokenizer.tokenize(query);
-  //   // ! After this you should send the tokens to the parser
-
-  //   // into the
-  //   const checkTheFLow = this.parser.parseSelect(tokens);
-
-  //   if (!checkTheFLow) {
-  //     throw new Error('SYNTAX ERROR');
-  //   }
-
-  //   // Go to execute
-  //   // 1. passing => columns, table name => storage service
-  //   const fromClauseIndex = tokens.findIndex((token) => {
-  //     return token.type === TokenType.FROM;
-  //   });
-  //   const result = await this.storage.select(
-  //     tokens[fromClauseIndex - 1].value,
-  //     tokens[fromClauseIndex + 1].value,
-  //   );
-
-  //   return result;
-  // }
 }
-
-//   1    2    3    4
-// SELECT id FROM users;
-// SELECT id FROM users WHERE id > 5;
-// before the FROM claue is the colunn name
-// after the FROM claue is the table name
-// you could get the FROM clauese index and then work on it to get the index of the column name and then get it
-// and you can work FROM clause index to get the index of the table name and then get it

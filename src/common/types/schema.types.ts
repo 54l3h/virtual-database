@@ -24,3 +24,8 @@ export interface Index {
 export interface ISchema {
   tables: ITable[];
 }
+
+export interface IConnection {
+  name: string;
+  currentDB: string;
+}

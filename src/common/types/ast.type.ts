@@ -4,30 +4,32 @@ import { WhereClause } from './query.types';
 import { DataType } from '../enums/data-type.enum';
 
 export interface BaseAST {
-  type: TokenType;
+  type: TokenType; // to specify the statement type
 }
 
 export interface SelectAST extends BaseAST {
   type: TokenType.SELECT;
-  columns: string[];
-  table: string;
-  where?: WhereClause;
+  columns: string[]; // column, list of columns, *
+  table: string; // table name
+  where?: WhereClause; // criterion, opertator, value
+  orderBy?: {
+    column: string; // column name
+    direction: 'ASC' | 'DESC';
+  };
 }
 
-// ! Check the table if it has indexes before insertion & updating
 export interface InsertAST extends BaseAST {
   type: TokenType.INSERT;
-  table: string;
-  columns: string[];
-  values: any[];
-  rowCount: number;
+  table: string; // table name
+  columns: string[]; // column/s name/s
+  values: any[]; // inserted values
 }
 
 export interface UpdateAST extends BaseAST {
   type: TokenType.UPDATE;
   table: string;
-  updates: Record<string, any>;
-  where?: WhereClause;
+  updates: Record<string, any>; // {column1:value, column2:value}
+  where?: WhereClause; // criterion, opertator, value
 }
 
 export interface DeleteAST extends BaseAST {
@@ -61,20 +63,12 @@ export interface DropDatabaseAST extends BaseAST {
   name: string;
 }
 
-export interface AlterDatabaseAST extends BaseAST {
-  type: TokenType.ALTER;
-  structure: TokenType.DATABASE;
-  name: string;
-  action: 'ADD' | 'DROP';
-}
-
 export interface AlterTableAST extends BaseAST {
   type: TokenType.ALTER;
   structure: TokenType.TABLE;
-  name: string;
-  columnName?: string;
+  name: string; // table name
+  columnName: string;
   dataType?: DataType;
-  // updates?: [];
   action: 'ADD' | 'DROP';
 }
 
@@ -87,5 +81,4 @@ export type AST =
   | CreateDatabaseAST
   | DropTableAST
   | DropDatabaseAST
-  | AlterDatabaseAST
   | AlterTableAST;

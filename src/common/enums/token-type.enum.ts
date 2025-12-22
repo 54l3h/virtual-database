@@ -3,13 +3,12 @@ export enum TokenType {
   INSERT = 'INSERT',
   UPDATE = 'UPDATE',
   DELETE = 'DELETE',
-
   CREATE = 'CREATE',
   ALTER = 'ALTER',
   DROP = 'DROP',
-
   FROM = 'FROM',
   WHERE = 'WHERE',
+  LIKE = 'LIKE',
   SET = 'SET',
   INTO = 'INTO',
   ADD = 'ADD',
@@ -18,18 +17,15 @@ export enum TokenType {
   KEY = 'KEY',
   UNIQUE = 'UNIQUE',
   TIMESTAMP = 'TIMESTAMP',
-
   TABLE = 'TABLE',
   DATABASE = 'DATABASE',
   COLUMN = 'COLUMN',
-
   COMMA = 'COMMA',
   SEMI_COLON = 'SEMI_COLON',
   LPAREN_OPERATOR = 'LPAREN_OPERATOR',
   RPAREN_OPERATOR = 'RPAREN_OPERATOR',
   COMPARISON_OPERATOR = 'COMPARISON_OPERATOR',
   ASTERISK = '*',
-
   NUMBER_LITERAL = 'NUMBER_LITERAL',
   STRING_LITERAL = 'STRING_LITERAL',
   BOOLEAN_LITERAL = 'BOOLEAN_LITERAL',
@@ -37,7 +33,7 @@ export enum TokenType {
   DATATYPE = 'DATATYPE',
 }
 
-export const KEYWORDS = new Set([
+export const KEYWORDS = new Set<string>([
   TokenType.SELECT,
   TokenType.INSERT,
   TokenType.UPDATE,
@@ -45,4 +41,17 @@ export const KEYWORDS = new Set([
   TokenType.CREATE,
   TokenType.ALTER,
   TokenType.DROP,
+  TokenType.FROM,
+  TokenType.WHERE,
+  TokenType.LIKE,
+  TokenType.SET,
+  TokenType.INTO,
+  TokenType.ADD,
+  TokenType.VALUES,
+  TokenType.PRIMARY,
+  TokenType.KEY,
+  TokenType.UNIQUE,
+  TokenType.TABLE,
+  TokenType.DATABASE,
+  TokenType.COLUMN,
 ]);

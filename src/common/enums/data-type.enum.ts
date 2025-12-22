@@ -1,12 +1,8 @@
 export enum DataType {
   INTEGER = 'INTEGER',
-  FLOAT = 'FLOAT',
   TEXT = 'TEXT',
   VARCHAR = 'VARCHAR',
   BOOLEAN = 'BOOLEAN',
   TIMESTAMP = 'TIMESTAMP',
   SERIAL = 'SERIAL',
-  DATE = 'DATE',
-  TIME = 'TIME',
-  CHAR = 'CHAR',
 }

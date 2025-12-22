@@ -16,599 +16,9 @@ import {
   CreateDatabaseAST,
   DropDatabaseAST,
   DropTableAST,
-  AlterDatabaseAST,
   AlterTableAST,
 } from '../../common/types/ast.type';
 import { DataType } from 'src/common/enums/data-type.enum';
-
-// Deprecated
-// export enum Operators {
-//   GREATER_THAN = '>',
-//   LESS_THAN = '<',
-//   EQUAL = '=',
-//   GREATER_THAN_OR_EQUAL = '>=',
-//   LESS_THAN_OR_EQUAL = '<=',
-// }
-
-// export interface IQuery {
-//   type: TokenType;
-//   columns: string[];
-//   table: string;
-//   where: {
-//     criterion: string;
-//     value: string | number | boolean;
-//     operator: Operators;
-//   };
-// }
-
-// export interface IDelQuery {
-//   type: TokenType.DELETE;
-//   columns: IColumn[];
-//   table: string;
-//   where: {
-//     criterion: string;
-//     value: string | number | boolean;
-//     operator: Operators;
-//   };
-// }
-
-// @Injectable()
-// export class ParserService {
-//   private tokens: IToken[] = [];
-//   private idx: number = 0;
-//   constructor(
-//     private readonly tokenizer: TokenizerService,
-//     private readonly semanticAnalyzer: SemanticAnalyzerService,
-//     @Inject(forwardRef(() => ExecutorService))
-//     private readonly executor: ExecutorService,
-//   ) {}
-
-//   async parse(query: string) {
-//     this.tokens = this.tokenizer.tokenize(query);
-//     let AST: IQuery = {} as IQuery;
-//     console.log(this.tokens);
-
-//     this.idx = 0;
-//     // console.log(KEYWORDS.has(tokens[0].type));
-
-//     if (this.idx === 0 && !KEYWORDS.has(this.tokens[0].type)) {
-//       throw new Error(`INVALID SYNTAX ${this.tokens[0].value}`);
-//     }
-
-//     switch (this.tokens[this.idx].type) {
-//       case TokenType.SELECT:
-//         this.idx++;
-//         AST = this.parseSelectt(this.tokens);
-//         break;
-
-//       case TokenType.DELETE:
-//         this.idx++;
-//         AST = this.parseDelete(this.tokens) as any;
-//         break;
-
-//       case TokenType.CREATE:
-//         this.idx++;
-//         AST =
-//           this.tokens[this.idx].type === TokenType.DATABASE
-//             ? (this.parseCreateDatabase(query) as any)
-//             : (this.parseCreateTable(query) as any);
-//         break;
-
-//       case TokenType.UPDATE:
-//         this.idx++;
-//         AST = (await this.parseUpdate(query)) as any;
-//         console.log('swit up');
-//         console.log(AST);
-
-//         break;
-
-//       case TokenType.INSERT:
-//         this.idx++;
-//         AST = (await this.parseInsert(query)) as any;
-//         console.log('swit up');
-//         console.log(AST);
-
-//         break;
-
-//       default:
-//         break;
-//     }
-
-//     return AST;
-//   }
-
-//   async parseInsert(query: string) {
-//     console.log(query);
-//     const AST = {
-//       type: TokenType.UPDATE,
-//       tableName: '',
-//       columns: [] as string[],
-//       values: [] as any[],
-//     };
-
-//     if (!this.expectt(TokenType.INTO, this.tokens)) {
-//       throw new Error(`Expected ${TokenType.INTO}`);
-//     }
-
-//     if (!this.expectt(TokenType.IDENTIFIER, this.tokens)) {
-//       throw new Error(`Expected ${TokenType.IDENTIFIER}`);
-//     }
-
-//     if (!this.expectt(TokenType.LPAREN_OPERATOR, this.tokens)) {
-//       throw new Error(`Expected ${TokenType.LPAREN_OPERATOR}`);
-//     }
-//     // Continue from here
-//   }
-
-//   async parseUpdate(query: string) {
-//     const AST = {
-//       type: TokenType.UPDATE,
-//       tableName: TokenType.TABLE,
-//       updatingColumn: {} as Column,
-//       conditionColumn: {} as Column,
-//       updatingValue: '' as any,
-//       conditionValue: '' as any,
-//     };
-
-//     if (!this.expectt(TokenType.IDENTIFIER, this.tokens)) {
-//       throw new Error(`Expected ${TokenType.IDENTIFIER}`);
-//     }
-
-//     AST.tableName = this.tokens[this.idx - 1].value;
-
-//     if (!this.expectt(TokenType.SET, this.tokens)) {
-//       throw new Error(`Expected ${TokenType.SET}`);
-//     }
-
-//     if (!this.expectt(TokenType.IDENTIFIER, this.tokens)) {
-//       throw new Error(`Expected ${TokenType.IDENTIFIER}`);
-//     }
-
-//     AST.updatingColumn = this.tokens[this.idx - 1].value;
-
-//     if (!this.expectt(TokenType.COMPARISON_OPERATOR, this.tokens)) {
-//       throw new Error(`Expected ${TokenType.COMPARISON_OPERATOR}`);
-//     }
-
-//     if (!this.expectt(TokenType.NUMBER_LITERAL, this.tokens)) {
-//       throw new Error(`Expected ${TokenType.NUMBER_LITERAL}`);
-//     }
-
-//     AST.updatingValue = this.tokens[this.idx - 1].value;
-
-//     if (!this.expectt(TokenType.WHERE, this.tokens)) {
-//       throw new Error(`Expected ${TokenType.WHERE}`);
-//     }
-
-//     if (!this.expectt(TokenType.IDENTIFIER, this.tokens)) {
-//       throw new Error(`Expected ${TokenType.IDENTIFIER}`);
-//     }
-
-//     AST.conditionColumn = this.tokens[this.idx - 1].value;
-
-//     if (!this.expectt(TokenType.COMPARISON_OPERATOR, this.tokens)) {
-//       throw new Error(`Expected ${TokenType.COMPARISON_OPERATOR}`);
-//     }
-
-//     if (!this.expectt(TokenType.NUMBER_LITERAL, this.tokens)) {
-//       throw new Error(`Expected ${TokenType.NUMBER_LITERAL}`);
-//     }
-
-//     AST.conditionValue = this.tokens[this.idx - 1].value;
-
-//     if (!this.expectt(TokenType.SEMI_COLON, this.tokens)) {
-//       throw new Error(`Expected ${TokenType.SEMI_COLON}`);
-//     }
-
-//     console.log('Finally');
-
-//     // Check coulmns existense
-//     await this.semanticAnalyzer.checkColumnsExistence(AST.tableName, [
-//       AST.conditionColumn as any,
-//       AST.updatingColumn as any,
-//     ]);
-
-//     console.log(AST);
-
-//     return AST;
-//   }
-
-//   parseSelectt(tokens: IToken[]) {
-//     // You got the tokens
-//     // Now you should check the flow
-//     // Then build the ast
-//     // Send the AST to the semantic analyzer to check tables and columns existence
-//     // After validate on the existence you should send the ast to the executor to start the execution
-
-//     // SELECT * FROM users;
-//     // SELECT id FROM users;
-//     // SELECT id, name FROM users;
-
-//     // const results: boolean[] = [
-//     //   this.expectt(TokenType.ASTERISK, tokens) ||
-//     //     this.expectt(TokenType.IDENTIFIER, tokens) ||
-//     //     (this.expectt(TokenType.IDENTIFIER, tokens) &&
-//     //       this.expectt(TokenType.COMMA, tokens) &&
-//     //       this.expectt(TokenType.IDENTIFIER, tokens)),
-//     //   this.expectt(TokenType.FROM, tokens),
-//     //   this.expectt(TokenType.IDENTIFIER, tokens),
-//     //   this.expectt(TokenType.SEMI_COLON, tokens),
-//     // ];
-
-//     const AST: IQuery = {
-//       type: TokenType.SELECT,
-//       columns: [] as string[],
-//       table: '',
-//       where: {},
-//     } as IQuery;
-
-//     // AST.where.value = 5;
-//     // AST.where.criterion = 'id';
-//     // Validate the syntax / && Pushing the correct values into the AST
-//     // if (
-//     //   this.expectt(TokenType.ASTERISK, tokens) &&
-//     //   this.expectt(TokenType.FROM, tokens) &&
-//     //   this.expect(TokenType.IDENTIFIER)
-//     //   // I won't check on the semi-colon existence
-
-//     // )
-
-//     // if (this.expectt(TokenType.ASTERISK, tokens)) {
-//     //   AST.columns.push(TokenType.ASTERISK);
-//     //   if (
-//     //     this.expectt(TokenType.FROM, tokens) &&
-//     //     this.expect(TokenType.IDENTIFIER)
-//     //   ) {
-//     //     console.log('h');
-
-//     //     AST.table = tokens[this.idx - 1].value;
-//     //     return true;
-//     //   }
-//     // } else if (this.expectt(TokenType.IDENTIFIER, tokens)) {
-//     //   AST.columns.push(tokens[this.idx - 1].value);
-
-//     //   while (this.expectt(TokenType.COMMA, tokens)) {
-//     //     AST.columns.push(tokens[this.idx - 1].value);
-//     //     if (!this.expectt(TokenType.IDENTIFIER, tokens)) {
-//     //       throw new Error('Expected column name after the comma');
-//     //     }
-//     //   }
-//     // } else {
-//     //   throw new Error('Expected * or list of columns');
-//     // }
-
-//     if (this.expectt(TokenType.ASTERISK, tokens)) {
-//       AST.columns.push('*');
-//     } else if (this.expectt(TokenType.IDENTIFIER, tokens)) {
-//       // first column
-//       AST.columns.push(tokens[this.idx - 1].value);
-
-//       while (this.expectt(TokenType.COMMA, tokens)) {
-//         if (!this.expectt(TokenType.IDENTIFIER, tokens)) {
-//           throw new Error('Expected column name after the comma');
-//         }
-
-//         AST.columns.push(tokens[this.idx - 1].value);
-//       }
-//     } else {
-//       throw new Error('Expected * or list of columns');
-//     }
-
-//     // after any of the above comes
-//     // 1- FROM
-//     // 2- Table name(IDENTIFER)
-
-//     if (!this.expectt(TokenType.FROM, tokens)) {
-//       throw new Error(`Expect ${TokenType.FROM}`);
-//     }
-
-//     if (!this.expectt(TokenType.IDENTIFIER, tokens)) {
-//       throw new Error(`Expect ${TokenType.IDENTIFIER}`);
-//     }
-
-//     AST.table = tokens[this.idx - 1].value;
-
-//     if (this.expectt(TokenType.WHERE, tokens)) {
-//       if (!this.expectt(TokenType.IDENTIFIER, tokens)) {
-//         throw new Error(`Expect ${TokenType.IDENTIFIER}`);
-//       }
-//       AST.where.criterion = tokens[this.idx - 1].value;
-
-//       if (!this.expectt(TokenType.COMPARISON_OPERATOR, tokens)) {
-//         throw new Error(`Expect ${TokenType.COMPARISON_OPERATOR}`);
-//       }
-//       AST.where.operator = tokens[this.idx - 1].value;
-
-//       // value
-//       if (!this.expectt(TokenType.NUMBER_LITERAL, tokens)) {
-//         throw new Error(`Expect ${TokenType.NUMBER_LITERAL}`);
-//       }
-//       AST.where.value = tokens[this.idx - 1].value;
-//     }
-
-//     // if (
-//     //   this.expectt(TokenType.WHERE, tokens) &&
-//     //   this.expectt(TokenType.IDENTIFIER, tokens) &&
-//     //   this.expectt(TokenType.COMPARISON_OPERATOR, tokens)
-//     // ) {
-//     //   AST.where.criterion = tokens[this.idx - 3].value;
-//     //   AST.where.operator = tokens[this.idx - 2].value;
-//     //   AST.where.value = tokens[this.idx - 1].value;
-//     // }
-
-//     console.log(AST);
-
-//     this.semanticAnalyzer.checkTableExistence(AST.table);
-//     this.semanticAnalyzer.checkColumnsExistence(AST.table, [
-//       AST.where.criterion,
-//       ...AST.columns,
-//     ]);
-
-//     // console.log(AST);
-
-//     return AST; // Abstract Search Tree
-
-//     // send the AST to the semantic analizer to check the existence of the columns and tables
-
-//     // Now you should execute the query
-
-//     // // Build an AST
-//     // const AST:IQuery = {
-//     //     type:'SELECT',
-//     //     table:`${}`
-//     // };
-//   }
-
-//   parseDelete(tokens: IToken[]) {
-//     const AST: IDelQuery = {
-//       type: TokenType.DELETE,
-//       columns: [] as IColumn[],
-//       table: '',
-//       where: {},
-//     } as IDelQuery;
-
-//     // DELETE FROM users;
-//     // DELETE FROM users WHERE id > 2;
-//     // DELETE FROM users WHERE id = 2;
-//     // DELETE FROM users WHERE role = 'test';
-
-//     if (!this.expectt(TokenType.FROM, tokens)) {
-//       throw new Error(`Expect ${TokenType.FROM}`);
-//     }
-
-//     if (!this.expectt(TokenType.IDENTIFIER, tokens)) {
-//       throw new Error(`Expect ${TokenType.IDENTIFIER}`);
-//     }
-
-//     AST.table = tokens[this.idx - 1].value;
-
-//     if (this.expectt(TokenType.WHERE, tokens)) {
-//       if (!this.expectt(TokenType.IDENTIFIER, tokens)) {
-//         throw new Error(`Expect ${TokenType.IDENTIFIER}`);
-//       }
-//       AST.where.criterion = tokens[this.idx - 1].value;
-
-//       if (!this.expectt(TokenType.COMPARISON_OPERATOR, tokens)) {
-//         throw new Error(`Expect ${TokenType.COMPARISON_OPERATOR}`);
-//       }
-//       AST.where.operator = tokens[this.idx - 1].value;
-
-//       // value
-//       if (!this.expectt(TokenType.NUMBER_LITERAL, tokens)) {
-//         throw new Error(`Expect ${TokenType.NUMBER_LITERAL}`);
-//       }
-//       AST.where.value = tokens[this.idx - 1].value;
-//     }
-
-//     console.log({ AST });
-
-//     this.semanticAnalyzer.checkTableExistence(AST.table);
-//     this.semanticAnalyzer.checkColumnsExistence(AST.table, [
-//       AST.where.criterion,
-//     ]);
-
-//     return AST;
-//   }
-
-//   parseCreate(query: string) {
-//     this.idx = 0;
-//     this.tokens = this.tokenizer.tokenize(query);
-
-//     // CREATE TABLE table_name {
-//     // }
-
-//     /**
-//      * CREATE TABLE table_name {
-//      *    column1_name datatype (size) [constraints],
-//      *    column
-//      * }
-//      */
-
-//     /**
-//      *     EmployeeID INT PRIMARY KEY AUTO_INCREMENT,
-//             FirstName VARCHAR(50) NOT NULL,
-//             LastName VARCHAR(50) NOT NULL,
-//             DepartmentID INT,
-//      */
-
-//     const AST: IQuery = {
-//       type: TokenType.CREATE,
-//       columns: [] as string[],
-//       table: '',
-//       where: {},
-//     } as IQuery;
-
-//     switch (this.tokens[this.idx].type) {
-//       case TokenType.DATABASE:
-//         break;
-
-//       default:
-//         break;
-//     }
-
-//     this.expectt(TokenType.TABLE, this.tokens);
-//   }
-
-//   async parseCreateTable(query: string) {
-//     const AST = {
-//       type: TokenType.CREATE,
-//       structure: TokenType.TABLE,
-//       structure_name: '',
-//       columns: [] as Column[],
-//     };
-
-//     console.log('parseCreateTable');
-
-//     if (!this.expectt(TokenType.TABLE, this.tokens)) {
-//       throw new Error(`Expect ${TokenType.DATABASE}`);
-//     }
-//     AST.structure = this.tokens[this.idx - 1].value;
-
-//     if (!this.expectt(TokenType.IDENTIFIER, this.tokens)) {
-//       throw new Error(`Expect ${TokenType.IDENTIFIER}`);
-//     }
-//     AST.structure_name = this.tokens[this.idx - 1].value;
-
-//     if (!this.expectt(TokenType.LPAREN_OPERATOR, this.tokens)) {
-//       throw new Error(`Expect ${TokenType.LPAREN_OPERATOR}`);
-//     }
-
-//     while (!this.expectt(TokenType.RPAREN_OPERATOR, this.tokens)) {
-//       if (!this.expectt(TokenType.IDENTIFIER, this.tokens)) {
-//         throw new Error('Expected column name');
-//       }
-//       let col: Column = { name: this.tokens[this.idx - 1].value } as Column;
-
-//       if (!this.expectt(TokenType.DATATYPE, this.tokens)) {
-//         throw new Error('Expected datatype');
-//       }
-//       col.type = this.tokens[this.idx - 1].value;
-
-//       AST.columns.push(col);
-
-//       if (this.tokens[this.idx]?.type === TokenType.COMMA) {
-//         this.idx++;
-//       }
-//     }
-
-//     if (!this.expectt(TokenType.SEMI_COLON, this.tokens)) {
-//       throw new Error(`Expect ${TokenType.SEMI_COLON}`);
-//     }
-//     // console.log(AST);
-
-//     const isExist = await this.semanticAnalyzer.isTableExist(
-//       AST.structure_name,
-//     );
-//     console.log({ isExist });
-
-//     if (isExist) {
-//       throw new Error(`Relation ${AST.structure_name} is already exist`);
-//     }
-
-//     console.log('finished');
-
-//     return AST;
-//   }
-
-//   parseCreateDatabase(query: string) {
-//     const AST = {
-//       type: TokenType.CREATE,
-//       structure: TokenType.DATABASE,
-//       structure_name: '',
-//     };
-
-//     if (!this.expectt(TokenType.DATABASE, this.tokens)) {
-//       throw new Error(`Expect ${TokenType.DATABASE}`);
-//     }
-//     AST.structure = this.tokens[this.idx - 1].value;
-
-//     if (!this.expectt(TokenType.IDENTIFIER, this.tokens)) {
-//       throw new Error(`Expect ${TokenType.IDENTIFIER}`);
-//     }
-//     AST.structure_name = this.tokens[this.idx - 1].value;
-
-//     if (!this.expectt(TokenType.SEMI_COLON, this.tokens)) {
-//       throw new Error(`Expect ${TokenType.SEMI_COLON}`);
-//     }
-
-//     return AST;
-//   }
-
-//   expectt(element: string, tokens: IToken[]): boolean {
-//     if (this.idx >= tokens.length) return false;
-
-//     const isTheNextElement = tokens[this.idx].type === element;
-
-//     if (isTheNextElement) {
-//       this.idx++;
-//     }
-
-//     return isTheNextElement;
-//   }
-
-//   parseSelect(tokens: IToken[]): boolean {
-//     // // this.idx = 0;
-//     // const tokens: IToken[] = this.tokenizer.tokenize(sql);
-//     this.idx = 0;
-//     if (tokens[this.idx].value === 'SELECT') {
-//       const results: boolean[] = [];
-
-//       this.tokens = tokens;
-//       this.idx++;
-
-//       //   results.push(
-//       //     this.expect('*') || this.expect('id'),
-//       //     this.expect('FROM'),
-//       //     this.expect('users'),
-//       //     this.expect(';'),
-//       //   );
-
-//       if (this.expect('*') || this.expect(TokenType.IDENTIFIER)) {
-//         if (this.expect(TokenType.FROM)) {
-//         }
-//       }
-
-//       if (!(this.expect(',') && this.expect(TokenType.IDENTIFIER))) {
-//         throw new Error('SYNTAX ERROR');
-//       }
-
-//       while (this.expect(',')) {}
-
-//       results.push(
-//         this.expect('*') || this.expect(TokenType.IDENTIFIER),
-//         this.expect(TokenType.FROM) ||
-//           (this.expect(',') && this.expect(TokenType.IDENTIFIER)),
-
-//         this.expect('users'),
-//         this.expect(';'),
-//       );
-
-//       // true(syntax error)
-//       if (this.checkTheFlow(results)) {
-//         return false;
-//       }
-//     }
-
-//     return true;
-//   }
-
-//   // true(syntax error)
-//   checkTheFlow(results: boolean[]): boolean {
-//     return results.includes(false);
-//   }
-
-//   expect(element: string): boolean {
-//     if (this.idx >= this.tokens.length) return false;
-
-//     const isTheNextElement = this.tokens[this.idx].value === element;
-
-//     if (isTheNextElement) {
-//       this.idx++;
-//     }
-
-//     return isTheNextElement;
-//   }
-// }
 
 @Injectable()
 export class ParserService {
@@ -622,93 +32,162 @@ export class ParserService {
     private readonly executor: ExecutorService,
   ) {}
 
+  // responsibility
   async parse(query: string): Promise<AST> {
+    // use the tokenize method from the tokenizer service which is responsible split on the query and identify the Tokens
     this.tokens = this.tokenizer.tokenize(query);
+
+    // pointer to move through the tokens to complete the checking process => (check the value by expect if the parser get what it expected the pointer will go throw the next token if not the parser will throw an error)
     this.pointer = 0;
 
+    // check if the first element of the tokens not a keyword
+    // any type is uppercased & all the keywords are uppercased too
     if (this.pointer === 0 && !KEYWORDS.has(this.tokens[0].type)) {
       throw new Error(`INVALID SYNTAX: ${this.tokens[0].value}`);
     }
 
+    // ABSTRACT SYNTAX TREE
     let AST: AST;
 
+    // CHECK THE TYPE OF THE STATEMENT
+    // DETERMINATION BASED ON THE FIRST TOKEN WHICH IS THE FIRST MEANINGFUL WORD INTO THE QUERY
     switch (this.tokens[this.pointer].type) {
+      // SELECT STATEMENT
       case TokenType.SELECT:
+        // GO THROUGH THE NEXT TOKEN
         this.pointer++;
+
+        // GET THE AST FROM THE PARSE SELECT METHOD (WILL CONTINUE EXPECTING THE REMAINING TOKENS BASED ON THE SELECT STATEMENT FLOW)
         AST = await this.parseSelect();
         break;
 
+      // DELETE STATEMENT
       case TokenType.DELETE:
+        // GO THROUGH THE NEXT TOKEN
         this.pointer++;
+
+        // GET THE AST FROM THE PARSE DELETE METHOD (WILL CONTINUE EXPECTING THE REMAINING TOKENS BASED ON THE DELETE STATEMENT FLOW)
         AST = await this.parseDelete();
         break;
 
+      // CREATE STATEMENT => (Create both Databases & Tables)
       case TokenType.CREATE:
+        // GO THROUGH THE NEXT TOKEN
         this.pointer++;
+
+        // GET THE AST FROM THE PARSE CREATE (DATABASE/TABLE) METHOD (WILL CONTINUE EXPECTING THE REMAINING TOKENS BASED ON THE CREATE STATEMENT FLOW)
         AST =
+          // IF THE TOKEN TYPE = DATABASE THEN => PARSE CREATE DATABASE ELSE PARSE CREATE TABLE
           this.tokens[this.pointer].type === TokenType.DATABASE
             ? await this.parseCreateDatabase()
             : await this.parseCreateTable();
         break;
 
+      // DROP STATEMENT => (Drop both Databases & Tables)
       case TokenType.DROP:
+        // GO THROUGH THE NEXT TOKEN
         this.pointer++;
+
+        // GET THE AST FROM THE PARSE DROP (DATABASE/TABLE) METHOD (WILL CONTINUE EXPECTING THE REMAINING TOKENS BASED ON THE DROP STATEMENT FLOW)
         AST =
           this.tokens[this.pointer].type === TokenType.DATABASE
             ? await this.parseDropDatabase()
             : await this.parseDropTable();
         break;
 
+      // UPDATE STATEMENT
       case TokenType.UPDATE:
+        // GO THROUGH THE NEXT TOKEN
         this.pointer++;
+
+        // GET THE AST FROM THE PARSE UPDATE METHOD (WILL CONTINUE EXPECTING THE REMAINING TOKENS BASED ON THE UPDATE STATEMENT FLOW)
         AST = await this.parseUpdate();
         break;
 
+      // INSERT STATEMENT
       case TokenType.INSERT:
+        // GO THROUGH THE NEXT TOKEN
         this.pointer++;
+
+        // GET THE AST FROM THE PARSE INSERT METHOD (WILL CONTINUE EXPECTING THE REMAINING TOKENS BASED ON THE INSERT STATEMENT FLOW)
         AST = await this.parseInsert();
         break;
 
+      // ALTER STATEMENT => (Alter Tables only)
       case TokenType.ALTER:
+        // GO THROUGH THE NEXT TOKEN
         this.pointer++;
-        AST =
-          this.tokens[this.pointer].type === TokenType.DATABASE
-            ? await this.parseAlterDatabase()
-            : await this.parseAlterTable();
+
+        // GET THE AST FROM THE PARSE ALTER TABLE METHOD (WILL CONTINUE EXPECTING THE REMAINING TOKENS BASED ON THE ALTER TABLE STATEMENT FLOW)
+        AST = await this.parseAlterTable();
         break;
 
       default:
         throw new Error('Unsupported query type');
     }
 
+    // Returns the Abstract Syntax Tree to the executor which will send it to the storage service provider to work on the I/O operations
     return AST;
   }
 
-  // TODO: Use the semantic analyzer here
-  async parseCreateDatabase(): Promise<CreateDatabaseAST> {
+  // responsibility
+  private expect(element: TokenType): boolean {
+    // you are passing the expected token => (element)
+    // then you will compare it against the token which the pointer on
+    // if it matched then this is the expedted token based on the query flow
+    // then you should increment the pointer and go through the next token on the array
+    // else you should't increment the pointer value and just return the isMatch which will equal false and the statement parser will check the return value and based on it the statement parser will throw an error
+    const isMatch = this.tokens[this.pointer].type === element;
+
+    if (isMatch) {
+      this.pointer++;
+    }
+
+    return isMatch;
+  }
+
+  // parse the tokens by expect the proper tokens which match the correct flow of the create database statement and returns the AST which includes the name of the database
+  private async parseCreateDatabase(): Promise<CreateDatabaseAST> {
     const AST: CreateDatabaseAST = {
       type: TokenType.CREATE,
       structure: TokenType.DATABASE,
       name: '',
     };
 
+    // expect DATABASE after CREATE
     if (!this.expect(TokenType.DATABASE)) {
       throw new Error(`Expected DATABASE keyword`);
     }
 
+    // expect IDENTIFIER after DATABASE
     if (!this.expect(TokenType.IDENTIFIER)) {
       throw new Error(`Expected database name`);
     }
+
+    // Assign the Database name into the Abstract syntax tree
     AST.name = this.tokens[this.pointer - 1].value as string;
 
+    // expect semi-colon => ; (after the database name)
     if (!this.expect(TokenType.SEMI_COLON)) {
       throw new Error(`Expected ';'`);
     }
 
+    // semantic analyzer
+    // check the existence of the database
+    const isExist = await this.semanticAnalyzer.checkDatabaseExistence(
+      AST.name,
+    );
+
+    if (isExist) {
+      throw new Error(`Database ${AST.name} already exists`);
+    }
+
+    // returns the AST => will be send to the executor which will be send it to the storage service
     return AST;
   }
 
-  async parseCreateTable(): Promise<CreateTableAST> {
+  // parse the tokens by expect the proper tokens which match the correct flow of the create table statement and returns the AST which includes the name of the table and the list of columns
+  private async parseCreateTable(): Promise<CreateTableAST> {
     const AST: CreateTableAST = {
       type: TokenType.CREATE,
       structure: TokenType.TABLE,
@@ -716,58 +195,79 @@ export class ParserService {
       columns: [],
     };
 
+    // expect TABLE after CREATE
     if (!this.expect(TokenType.TABLE)) {
       throw new Error(`Expected TABLE keyword`);
     }
 
+    // expect table name after TABLE keyword
     if (!this.expect(TokenType.IDENTIFIER)) {
       throw new Error(`Expected table name`);
     }
+
+    // Assign table name into the AST
     AST.name = this.tokens[this.pointer - 1].value as string;
 
+    // expect the left parantheses operator
     if (!this.expect(TokenType.LPAREN_OPERATOR)) {
       throw new Error(`Expected '('`);
     }
 
+    // if i get the right parantheses then the table will be created but without columns
+    // while i didn't get the right parantheses i should expect a column name (IDENTIFIER)
     while (!this.expect(TokenType.RPAREN_OPERATOR)) {
+      // expect column name
       if (!this.expect(TokenType.IDENTIFIER)) {
         throw new Error('Expected column name');
       }
+      // expect => pointer + 1
+      // to get the name pointer - 1
       const col: IColumn = {
         name: this.tokens[this.pointer - 1].value as string,
-        type: null as any,
+        type: null as any, // temporary
       };
 
+      // expect datatype
       if (!this.expect(TokenType.DATATYPE)) {
         throw new Error('Expected data type');
       }
 
+      // get the datatype => pointer - 1
+      // to uppercase because DataType enums are uppercased
       const dataType = (
         this.tokens[this.pointer - 1].value as string
       ).toUpperCase();
 
+      // determine the column type
       if (dataType === DataType.SERIAL) {
         col.type = DataType.INTEGER;
         col.autoIncrement = true;
       } else {
+        // handle other data types
         col.type = dataType as DataType;
       }
 
       if (dataType === 'VARCHAR') {
+        // you can get length withing the () and you can just get the varchar without the specific size
         if (this.tokens[this.pointer]?.type === TokenType.LPAREN_OPERATOR) {
           this.pointer++;
 
+          // now you should get the length
           if (!this.expect(TokenType.NUMBER_LITERAL)) {
             throw new Error('Expected length for VARCHAR');
           }
+
+          // get the length and assign it into the column object
           col.length = parseInt(this.tokens[this.pointer - 1].value as string);
 
+          // expect the right parenthesis operator
           if (!this.expect(TokenType.RPAREN_OPERATOR)) {
             throw new Error(`Expected ')' after VARCHAR length`);
           }
         }
       }
 
+      // handle the pk and unique and push the column into the AST columns
       while (
         this.tokens[this.pointer].type !== TokenType.COMMA &&
         this.tokens[this.pointer].type !== TokenType.RPAREN_OPERATOR
@@ -789,17 +289,19 @@ export class ParserService {
         }
       }
 
-      AST.columns.push(col);
+      AST.columns?.push(col);
 
       if (this.tokens[this.pointer].type === TokenType.COMMA) {
         this.pointer++;
       }
     }
 
+    // end the create table statement not expect anything, more than the semi-colon
     if (!this.expect(TokenType.SEMI_COLON)) {
       throw new Error(`Expected ';'`);
     }
 
+    // check if the table exist or not
     const tableExists =
       await this.semanticAnalyzer.checkTableExistenceInCurrentDB(AST.name);
 
@@ -810,50 +312,55 @@ export class ParserService {
     return AST;
   }
 
-  async parseInsert(): Promise<InsertAST> {
+  // parse the tokens by expect the proper tokens which match the correct flow of the insert statement and returns the AST which includes the columns and values
+  private async parseInsert(): Promise<InsertAST> {
     const AST: InsertAST = {
       type: TokenType.INSERT,
       table: '',
       columns: [],
       values: [],
-      rowCount: 0,
     };
 
+    // make sure INTO keyword follows INSERT
     if (!this.expect(TokenType.INTO)) {
       throw new Error(`Expected ${TokenType.INTO}`);
     }
 
+    // extract the target table name
     if (!this.expect(TokenType.IDENTIFIER)) {
       throw new Error(`Expected table name`);
     }
     AST.table = this.tokens[this.pointer - 1].value as string;
 
+    // expect '(' to start the column list
     if (!this.expect(TokenType.LPAREN_OPERATOR)) {
       throw new Error(`Expected '('`);
     }
 
+    // iterate through the list of columns until ')'
     while (!this.expect(TokenType.RPAREN_OPERATOR)) {
       if (!this.expect(TokenType.IDENTIFIER)) {
         throw new Error('Expected column name');
       }
       AST.columns.push(this.tokens[this.pointer - 1].value as string);
 
+      // consume commas between column names
       if (this.tokens[this.pointer]?.type === TokenType.COMMA) {
         this.pointer++;
       }
     }
 
+    // Expect VALUES keyword after columns list
     if (!this.expect(TokenType.VALUES)) {
       throw new Error(`Expected VALUES keyword`);
     }
-
-    let rowCount = 0;
 
     while (this.tokens[this.pointer]?.type === TokenType.LPAREN_OPERATOR) {
       if (!this.expect(TokenType.LPAREN_OPERATOR)) {
         throw new Error(`Expected '('`);
       }
 
+      // get the number of values to compare it to the number of columns => target columns should === expressions
       let valueCount = 0;
 
       while (!this.expect(TokenType.RPAREN_OPERATOR)) {
@@ -879,23 +386,22 @@ export class ParserService {
         }
       }
 
+      // compare the number of values against the number of columns
       if (valueCount !== AST.columns.length) {
         throw new Error(`Value count doesn't match column count`);
       }
-
-      rowCount++;
-
+      
+      // for insert many => commas between rows
       if (this.tokens[this.pointer]?.type === TokenType.COMMA) {
         this.pointer++;
       }
     }
 
-    AST.rowCount = rowCount;
-
     if (!this.expect(TokenType.SEMI_COLON)) {
       throw new Error(`Expected ';'`);
     }
 
+    // semantic analysis
     const tableExists =
       await this.semanticAnalyzer.checkTableExistenceInCurrentDB(AST.table);
     if (!tableExists) {
@@ -913,7 +419,8 @@ export class ParserService {
     return AST;
   }
 
-  async parseUpdate(): Promise<UpdateAST> {
+  //
+  private async parseUpdate(): Promise<UpdateAST> {
     const AST: UpdateAST = {
       type: TokenType.UPDATE,
       table: '',
@@ -955,7 +462,7 @@ export class ParserService {
     } else if (this.expect(TokenType.BOOLEAN_LITERAL)) {
       updatingValue = this.tokens[this.pointer - 1].value;
     } else {
-      throw new Error(`Expected value, got ${token.type}`);
+      throw new Error(`Expected value to update ,but got ${token.type}`);
     }
 
     AST.updates[updatingColumn] = updatingValue;
@@ -1036,7 +543,7 @@ export class ParserService {
     return AST;
   }
 
-  async parseSelect(): Promise<SelectAST> {
+  private async parseSelect(): Promise<SelectAST> {
     const AST: SelectAST = {
       type: TokenType.SELECT,
       columns: [],
@@ -1076,10 +583,16 @@ export class ParserService {
       }
       const criterion = this.tokens[this.pointer - 1].value as string;
 
-      if (!this.expect(TokenType.COMPARISON_OPERATOR)) {
-        throw new Error(`Expected comparison operator`);
+      // Check for LIKE or comparison operator
+      let operator: Operator;
+
+      if (this.expect(TokenType.LIKE)) {
+        operator = Operator.LIKE; // Make sure you have LIKE in your Operator enum
+      } else if (this.expect(TokenType.COMPARISON_OPERATOR)) {
+        operator = this.tokens[this.pointer - 1].value as Operator;
+      } else {
+        throw new Error(`Expected comparison operator or LIKE`);
       }
-      const operator = this.tokens[this.pointer - 1].value as Operator;
 
       const token = this.tokens[this.pointer];
 
@@ -1096,7 +609,6 @@ export class ParserService {
           throw new Error(`Expected value`);
         }
         value = this.tokens[this.pointer - 1].value;
-        console.log({ str: value });
       }
 
       if (token.type === TokenType.BOOLEAN_LITERAL) {
@@ -1105,8 +617,6 @@ export class ParserService {
         }
         value = this.tokens[this.pointer - 1].value;
       }
-      console.log({ value });
-      console.log({ tko: this.tokens });
 
       AST.where = { criterion, operator, value };
     }
@@ -1136,7 +646,7 @@ export class ParserService {
     return AST;
   }
 
-  async parseDelete(): Promise<DeleteAST> {
+  private async parseDelete(): Promise<DeleteAST> {
     const AST: DeleteAST = {
       type: TokenType.DELETE,
       table: '',
@@ -1193,7 +703,7 @@ export class ParserService {
     return AST;
   }
 
-  async parseDropDatabase(): Promise<DropDatabaseAST> {
+  private async parseDropDatabase(): Promise<DropDatabaseAST> {
     const AST: DropDatabaseAST = {
       type: TokenType.DROP,
       structure: TokenType.DATABASE,
@@ -1222,7 +732,7 @@ export class ParserService {
     return AST;
   }
 
-  async parseDropTable(): Promise<DropTableAST> {
+  private async parseDropTable(): Promise<DropTableAST> {
     const AST: DropTableAST = {
       type: TokenType.DROP,
       structure: TokenType.TABLE,
@@ -1251,11 +761,12 @@ export class ParserService {
     return AST;
   }
 
-  async parseAlterTable(): Promise<AlterTableAST> {
+  private async parseAlterTable(): Promise<AlterTableAST> {
     const AST: AlterTableAST = {
       type: TokenType.ALTER,
       structure: TokenType.TABLE,
-      name: '',
+      name: '', // table name
+      columnName: '',
       action: 'ADD',
     };
 
@@ -1316,25 +827,5 @@ export class ParserService {
     }
 
     return AST;
-  }
-
-  async parseAlterDatabase(): Promise<AlterDatabaseAST> {
-    const AST: AlterDatabaseAST = {} as AlterDatabaseAST;
-
-    return AST;
-  }
-
-  expect(element: TokenType): boolean {
-    if (this.pointer >= this.tokens.length) {
-      return false;
-    }
-
-    const isMatch = this.tokens[this.pointer].type === element;
-
-    if (isMatch) {
-      this.pointer++;
-    }
-
-    return isMatch;
   }
 }

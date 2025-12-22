@@ -1,7 +1,7 @@
 {
   "tables": [
     {
-      "name": "students",
+      "name": "users",
       "columns": [
         {
           "name": "id",
@@ -10,7 +10,7 @@
           "primaryKey": true
         },
         { "name": "email", "type": "VARCHAR", "length": 255, "unique": true },
-        { "name": "age", "type": "VARCHAR" }
+        { "name": "created_at", "type": "TIMESTAMP" }
       ]
     }
   ]
