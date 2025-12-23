@@ -6,7 +6,7 @@ export class ExecutorController {
   constructor(private readonly executorService: ExecutorService) {}
 
   @Post('ddl')
-  executeDDL(@Body() query: string) {
+  async executeDDL(@Body() query: string) {
     return this.executorService.executeDDL(query);
   }
 

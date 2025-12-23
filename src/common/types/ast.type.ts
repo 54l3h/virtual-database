@@ -29,7 +29,7 @@ export interface UpdateAST extends BaseAST {
   type: TokenType.UPDATE;
   table: string;
   updates: Record<string, any>; // {column1:value, column2:value}
-  where?: WhereClause; // criterion, opertator, value
+  where: WhereClause; // criterion, opertator, value
 }
 
 export interface DeleteAST extends BaseAST {

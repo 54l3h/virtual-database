@@ -1,9 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { StorageService } from '../storage/storage.service';
+import { SchemaLogic } from '../storage/schema/schema.logic';
+import { ConnectionLogic } from '../storage/connection/connection-logic';
 
 @Injectable()
 export class SemanticAnalyzerService {
-  constructor(private readonly storageService: StorageService) {}
+  constructor(
+    private readonly storageService: StorageService,
+    private readonly schemaLogic: SchemaLogic,
+    private readonly connectionLogic: ConnectionLogic,
+  ) {}
 
   async checkTableExistenceInCurrentDB(tableName: string): Promise<boolean> {
     return await this.storageService.checkTableExistsInCurrentDB(tableName);
@@ -13,7 +19,11 @@ export class SemanticAnalyzerService {
     tableName: string,
     columnName: string,
   ): Promise<boolean> {
-    const table = await this.storageService.getTableFromCurrentDB(tableName);
+    const currentDB = await this.connectionLogic.getCurrentDatabase();
+    const table = await this.schemaLogic.getTableFromCurrentDB(
+      currentDB,
+      tableName,
+    );
 
     return table.columns.some((column) => column.name === columnName);
   }

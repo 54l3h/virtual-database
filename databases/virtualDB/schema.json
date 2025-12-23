@@ -1,7 +1,7 @@
 {
   "tables": [
     {
-      "name": "users",
+      "name": "products",
       "columns": [
         {
           "name": "id",
@@ -9,7 +9,24 @@
           "autoIncrement": true,
           "primaryKey": true
         },
-        { "name": "email", "type": "VARCHAR", "length": 255, "unique": true },
+        { "name": "price", "type": "INTEGER" },
+        { "name": "GTIN", "type": "INTEGER", "unique": true },
+        { "name": "isExist", "type": "BOOLEAN" },
+        { "name": "created_at", "type": "TIMESTAMP" }
+      ]
+    },
+    {
+      "name": "productsClone",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "autoIncrement": true,
+          "primaryKey": true
+        },
+        { "name": "price", "type": "INTEGER" },
+        { "name": "GTIN", "type": "INTEGER", "unique": true },
+        { "name": "isExist", "type": "BOOLEAN" },
         { "name": "created_at", "type": "TIMESTAMP" }
       ]
     }

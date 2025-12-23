@@ -31,6 +31,10 @@ export enum TokenType {
   BOOLEAN_LITERAL = 'BOOLEAN_LITERAL',
   IDENTIFIER = 'IDENTIFIER',
   DATATYPE = 'DATATYPE',
+  ORDER = 'ORDER',
+  BY = 'BY',
+  ASC = 'ASC',
+  DESC = 'DESC',
 }
 
 export const KEYWORDS = new Set<string>([
