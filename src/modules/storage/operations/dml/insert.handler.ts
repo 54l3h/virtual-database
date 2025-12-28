@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { BaseStorageOperations } from './base-operation';
 import { InsertAST } from 'src/common/types/ast.type';
 import { appendFile } from 'src/common/utils/append-file';
-import { IndexLogic } from '../index/index-logic';
-import { SchemaLogic } from '../schema/schema.logic';
+import { IndexLogic } from '../../index/index-logic';
+import { SchemaLogic } from '../../schema/schema.logic';
 import * as fs from 'node:fs/promises';
 import { ITable } from 'src/common/types/schema.types';
+import { BaseStorageOperations } from '../base-operation';
 
 @Injectable()
 export class InsertHandler extends BaseStorageOperations {

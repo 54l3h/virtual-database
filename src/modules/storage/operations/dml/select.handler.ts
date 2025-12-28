@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { BaseStorageOperations } from './base-operation';
-import { IndexLogic } from '../index/index-logic';
-import { SchemaLogic } from '../schema/schema.logic';
+import { IndexLogic } from '../../index/index-logic';
+import { SchemaLogic } from '../../schema/schema.logic';
 import { AST, SelectAST } from 'src/common/types/ast.type';
 import { ISchema } from 'src/common/types/schema.types';
 import * as fs from 'node:fs/promises';
@@ -9,6 +8,7 @@ import { Operator } from 'src/common/enums/operator.enum';
 import { TokenType } from 'src/common/enums/token-type.enum';
 import { matchesCondition } from 'src/common/utils/comparison.helper';
 import { projectData } from 'src/common/utils/project-data';
+import { BaseStorageOperations } from '../base-operation';
 
 @Injectable()
 export class SelectHandler extends BaseStorageOperations {
@@ -93,7 +93,6 @@ export class SelectHandler extends BaseStorageOperations {
           );
 
           // filter by criterion
-          // es2l karim
           allRows = this.destructTheData(matchingResults);
         }
         // No WHERE clause => return all rows

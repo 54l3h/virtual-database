@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { DeleteAST } from 'src/common/types/ast.type';
-import { SchemaLogic } from '../schema/schema.logic';
-import { IndexLogic } from '../index/index-logic';
+import { SchemaLogic } from '../../schema/schema.logic';
+import { IndexLogic } from '../../index/index-logic';
 import { TokenType } from 'src/common/enums/token-type.enum';
 import { matchesCondition } from 'src/common/utils/comparison.helper';
 import { appendFile } from 'src/common/utils/append-file';
 import * as fs from 'node:fs/promises';
-import { BaseStorageOperations } from './base-operation';
+import { BaseStorageOperations } from '../base-operation';
 
 @Injectable()
 export class DeleteHandler extends BaseStorageOperations {

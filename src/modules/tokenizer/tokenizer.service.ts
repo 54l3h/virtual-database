@@ -82,7 +82,7 @@ export class TokenizerService {
     if (wordUpperCased === 'TRUE' || wordUpperCased === 'FALSE') {
       return {
         type: TokenType.BOOLEAN_LITERAL,
-        value: wordUpperCased === 'TRUE', // ✅ Actual boolean
+        value: wordUpperCased === 'TRUE',
       };
     }
 

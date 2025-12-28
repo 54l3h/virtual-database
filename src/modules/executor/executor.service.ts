@@ -60,7 +60,7 @@ export class ExecutorService {
     const handler = handlers[ast.type];
 
     if (!handler) {
-      throw new Error(`${ast.type} is not a valid DML operation.`);
+      throw new Error(`${ast.type} is not a valid operation.`);
     }
 
     return await handler(ast);
@@ -70,9 +70,7 @@ export class ExecutorService {
     if (ast.structure === TokenType.DATABASE) {
       return this.storage.createDatabase(ast as CreateDatabaseAST);
     }
-
-    const currentDB = await this.connectionLogic.getCurrentDatabase();
-    return this.schemaLogic.createNewTable(currentDB, ast as CreateTableAST);
+    return this.storage.createTable(ast as CreateTableAST);
   }
 
   private async handleDrop(ast: DropDatabaseAST | DropTableAST) {

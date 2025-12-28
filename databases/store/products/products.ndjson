@@ -53,3 +53,11 @@
 {"deleted":true,"price":600,"isExist":false,"GTIN":5665246,"id":13,"created_at":"2025-12-27T20:50:18.810Z","updatedAt":"2025-12-27T20:50:18.810Z"}
 {"deleted":true,"price":600,"isExist":false,"GTIN":56655246,"id":14,"created_at":"2025-05-27T18:03:34.707Z","updatedAt":"2025-12-28T04:38:30.888Z"}
 {"deleted":false,"price":600,"isExist":false,"GTIN":56655246,"id":15,"created_at":"2025-12-28T04:53:21.275Z","updatedAt":"2025-12-28T04:53:21.275Z"}
+{"deleted":false,"price":600,"isExist":false,"GTIN":5246,"id":16,"created_at":"2025-12-28T09:40:16.906Z","updatedAt":"2025-12-28T09:40:16.906Z"}
+{"deleted":true,"price":600,"isExist":false,"GTIN":5246,"id":16,"created_at":"2025-12-28T09:40:16.906Z","updatedAt":"2025-12-28T09:40:16.906Z"}
+{"deleted":false,"price":600,"isExist":true,"GTIN":5246,"id":16,"created_at":"2025-12-28T09:40:16.906Z","updatedAt":"2025-12-28T09:40:16.906Z"}
+{"deleted":true,"price":600,"isExist":true,"GTIN":5246,"id":16,"created_at":"2025-12-28T09:40:16.906Z","updatedAt":"2025-12-28T09:40:16.906Z"}
+{"deleted":false,"price":600,"isExist":false,"GTIN":5246,"id":16,"created_at":"2025-05-27T18:03:34.707Z","updatedAt":"2025-12-28T09:40:16.906Z"}
+{"deleted":true,"price":600,"isExist":false,"GTIN":5246,"id":16,"created_at":"2025-05-27T18:03:34.707Z","updatedAt":"2025-12-28T09:40:16.906Z"}
+{"deleted":true,"price":600,"isExist":false,"GTIN":56655246,"id":15,"created_at":"2025-12-28T04:53:21.275Z","updatedAt":"2025-12-28T04:53:21.275Z"}
+{"deleted":false,"price":600,"isExist":false,"GTIN":5246,"id":17,"created_at":"2025-12-28T09:41:07.977Z","updatedAt":"2025-12-28T09:41:07.977Z"}
