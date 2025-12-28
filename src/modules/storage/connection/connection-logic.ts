@@ -14,7 +14,7 @@ export class ConnectionLogic {
   );
 
   /**
-   * ! session management
+   *  session management
    */
   // the name of connected database
   async getCurrentDatabase(): Promise<string> {

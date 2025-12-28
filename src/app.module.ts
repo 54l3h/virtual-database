@@ -6,7 +6,6 @@ import { ParserModule } from './modules/parser/parser.module';
 import { TokenizerModule } from './modules/tokenizer/tokenizer.module';
 import { ExecutorModule } from './modules/executor/executor.module';
 import { StorageModule } from './modules/storage/storage.module';
-import { SemanticAnalyzerModule } from './modules/semantic-analyzer/semantic-analyzer.module';
 
 @Module({
   imports: [
@@ -15,7 +14,6 @@ import { SemanticAnalyzerModule } from './modules/semantic-analyzer/semantic-ana
     ExecutorModule,
     StorageModule,
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
-    SemanticAnalyzerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,21 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { BaseParser } from '../base-parser';
+import { BaseParser, ParserState } from '../base-parser';
 import { SelectAST } from '../../../common/types/ast.type';
 import { TokenType } from '../../../common/enums/token-type.enum';
 import { IToken } from '../../../common/types/token.types';
-import { Operator } from '../../../common/enums/operator.enum';
-import { SemanticAnalyzerService } from '../../semantic-analyzer/semantic-analyzer.service';
+import { SchemaLogic } from 'src/modules/storage/schema/schema.logic';
 
 @Injectable()
 export class SelectParser extends BaseParser {
-  constructor(private readonly semanticAnalyzer: SemanticAnalyzerService) {
-    super();
+  constructor(schemaLogic: SchemaLogic) {
+    super(schemaLogic);
   }
 
-  // parse the tokens by expect the proper tokens which match the correct flow of the select statement and returns the AST which includes the table name and the selected columns
   async parse(tokens: IToken[], pointer: number): Promise<SelectAST> {
-    this.tokens = tokens;
-    this.pointer = pointer;
+    const state: ParserState = { tokens, pointer };
 
     const AST: SelectAST = {
       type: TokenType.SELECT,
@@ -23,114 +20,98 @@ export class SelectParser extends BaseParser {
       table: '',
     };
 
-    // Parse columns
-    if (this.expect(TokenType.ASTERISK)) {
+    // Parse columns (SELECT * or SELECT col1, col2)
+    if (this.expect(state, TokenType.ASTERISK)) {
       AST.columns.push('*');
-    } else if (this.expect(TokenType.IDENTIFIER)) {
-      AST.columns.push(this.tokens[this.pointer - 1].value as string);
+    } else if (this.expect(state, TokenType.IDENTIFIER)) {
+      AST.columns.push(this.getPreviousTokenValue(state));
 
-      while (this.expect(TokenType.COMMA)) {
-        if (!this.expect(TokenType.IDENTIFIER)) {
+      while (this.expect(state, TokenType.COMMA)) {
+        if (!this.expect(state, TokenType.IDENTIFIER)) {
           throw new Error('Expected column name after comma');
         }
-        AST.columns.push(this.tokens[this.pointer - 1].value as string);
+        AST.columns.push(this.getPreviousTokenValue(state));
       }
     } else {
-      throw new Error('Expected * or column/s name/s');
+      throw new Error('Expected * or column name(s)');
     }
 
-    // Parse FROM clause (mandatory)
-    if (!this.expect(TokenType.FROM)) {
-      throw new Error(`Expected FROM keyword`);
+    // Parse FROM clause
+    if (!this.expect(state, TokenType.FROM)) {
+      throw new Error('Expected FROM keyword');
     }
 
-    // Parse the table name
-    if (!this.expect(TokenType.IDENTIFIER)) {
-      throw new Error(`Expected table name`);
+    // Parse Table Name
+    if (this.expect(state, TokenType.IDENTIFIER)) {
+      AST.table = this.getPreviousTokenValue(state);
+    } else {
+      const currentToken = state.tokens[state.pointer];
+
+      if (
+        currentToken &&
+        currentToken.type !== TokenType.SEMI_COLON &&
+        typeof currentToken.value === 'string'
+      ) {
+        AST.table = currentToken.value;
+        state.pointer++;
+      } else {
+        throw new Error('Expected table name after FROM');
+      }
     }
-    AST.table = this.tokens[this.pointer - 1].value as string;
 
     // Parse WHERE clause (optional)
-    if (this.expect(TokenType.WHERE)) {
-      if (!this.expect(TokenType.IDENTIFIER)) {
-        throw new Error(`Expected column name in WHERE clause`);
-      }
-      const criterion = this.tokens[this.pointer - 1].value as string;
-
-      let operator: Operator;
-      if (this.expect(TokenType.LIKE)) {
-        operator = Operator.LIKE;
-      } else if (this.expect(TokenType.COMPARISON_OPERATOR)) {
-        operator = this.tokens[this.pointer - 1].value as Operator;
-      } else {
-        throw new Error(`Expected comparison operator or LIKE`);
-      }
-
-      let value: string | number | boolean = '';
-      if (this.expect(TokenType.NUMBER_LITERAL)) {
-        value = Number(this.tokens[this.pointer - 1].value);
-      } else if (this.expect(TokenType.STRING_LITERAL)) {
-        value = String(this.tokens[this.pointer - 1].value);
-      } else if (this.expect(TokenType.BOOLEAN_LITERAL)) {
-        value = Boolean(this.tokens[this.pointer - 1].value);
-      } else {
-        throw new Error(`Expected (number, string, or boolean)`);
-      }
-
-      AST.where = { criterion, operator, value };
+    if (this.expect(state, TokenType.WHERE)) {
+      AST.where = this.parseWhereClause(state);
     }
 
-    // ORDER BY => optional
-    if (this.expect(TokenType.ORDER)) {
-      if (!this.expect(TokenType.BY)) {
-        throw new Error(`expected BY after ORDER`);
+    // Parse ORDER BY clause (optional) (NOT YET)
+    if (this.expect(state, TokenType.ORDER)) {
+      if (!this.expect(state, TokenType.BY)) {
+        throw new Error('Expected BY after ORDER');
       }
 
-      if (!this.expect(TokenType.IDENTIFIER)) {
-        throw new Error(`expected column name for ordering`);
+      if (!this.expect(state, TokenType.IDENTIFIER)) {
+        throw new Error('Expected column name for ordering');
       }
 
-      const column = this.tokens[this.pointer - 1].value as string;
-      let direction: TokenType.ASC | TokenType.DESC = TokenType.ASC; // DEFAULT => ASC
+      const column = this.getPreviousTokenValue(state);
+      let direction: TokenType.ASC | TokenType.DESC = TokenType.ASC;
 
-      if (this.expect(TokenType.DESC)) {
+      if (this.expect(state, TokenType.DESC)) {
         direction = TokenType.DESC;
-      } else if (this.expect(TokenType.ASC)) {
+      } else if (this.expect(state, TokenType.ASC)) {
         direction = TokenType.ASC;
       }
 
-      // assign ordering info to AST
       AST.orderBy = { column, direction };
     }
 
-    // Semantic validation
-    const tableExists =
-      await this.semanticAnalyzer.checkTableExistenceInCurrentDB(AST.table);
-    if (!tableExists) {
-      throw new Error(`Table ${AST.table} doesn't exist`);
-    }
+    // Expect semicolon
+    this.expectSemicolon(state);
 
-    // spread gathered columns names => (selected columns and the condition column(criterion))
-    const columnsToCheck = [...AST.columns];
+    // Semantic analysis
+    await this.validateTableExists(AST.table);
 
-    // if you have WHERE clause you will have condition column so you should push it into the columnsToCheck array
-    if (AST.where) {
-      columnsToCheck.push(AST.where.criterion);
-    }
-
-    // push ordering column into columnsToCheck to verify it exists in the schema
-    if (AST.orderBy) {
-      columnsToCheck.push(AST.orderBy.column);
-    }
-
-    const columnsExist = await this.semanticAnalyzer.checkColumnsExistence(
-      AST.table,
-      columnsToCheck,
-    );
-    if (!columnsExist) {
-      throw new Error(
-        `One or more columns don't exist in table "${AST.table}"`,
-      );
+    if (!AST.columns.includes('*')) {
+      const columnsToCheck = [...AST.columns];
+      if (AST.where) {
+        columnsToCheck.push(AST.where.criterion);
+      }
+      if (AST.orderBy) {
+        columnsToCheck.push(AST.orderBy.column);
+      }
+      await this.validateColumnsExist(AST.table, columnsToCheck);
+    } else {
+      const columnsToCheck: string[] = [];
+      if (AST.where) {
+        columnsToCheck.push(AST.where.criterion);
+      }
+      if (AST.orderBy) {
+        columnsToCheck.push(AST.orderBy.column);
+      }
+      if (columnsToCheck.length > 0) {
+        await this.validateColumnsExist(AST.table, columnsToCheck);
+      }
     }
 
     return AST;

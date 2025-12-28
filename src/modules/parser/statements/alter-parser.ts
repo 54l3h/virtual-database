@@ -1,86 +1,71 @@
 import { Injectable } from '@nestjs/common';
-import { BaseParser } from '../base-parser';
+import { BaseParser, ParserState } from '../base-parser';
 import { AlterTableAST } from '../../../common/types/ast.type';
 import { TokenType } from '../../../common/enums/token-type.enum';
 import { IToken } from '../../../common/types/token.types';
-import { DataType } from '../../../common/enums/data-type.enum';
-import { SemanticAnalyzerService } from '../../semantic-analyzer/semantic-analyzer.service';
+import { SchemaLogic } from 'src/modules/storage/schema/schema.logic';
 
 @Injectable()
 export class AlterParser extends BaseParser {
-  constructor(private readonly semanticAnalyzer: SemanticAnalyzerService) {
-    super();
+  constructor(schemaLogic: SchemaLogic) {
+    super(schemaLogic);
   }
 
-  /**
-   * TODO: handle the other action =2> 'DROP
-   */
   async parse(tokens: IToken[], pointer: number): Promise<AlterTableAST> {
-    this.tokens = tokens;
-    this.pointer = pointer;
+    const state: ParserState = { tokens, pointer };
 
     const AST: AlterTableAST = {
       type: TokenType.ALTER,
       structure: TokenType.TABLE,
-      name: '', // table name
+      name: '',
       columnName: '',
       action: 'ADD',
     };
 
-    if (!this.expect(TokenType.TABLE)) {
-      throw new Error(`Expected ${TokenType.TABLE}`);
-    }
-    AST.structure = this.tokens[this.pointer - 1].type as TokenType.TABLE;
-
-    if (!this.expect(TokenType.IDENTIFIER)) {
-      throw new Error(`Expected table name`);
-    }
-    AST.name = this.tokens[this.pointer - 1].value as string;
-
-    console.log({ AST });
-
-    if (!this.expect(TokenType.ADD) && !this.expect(TokenType.DROP)) {
-      throw new Error(`Expected ${TokenType.ADD} or ${TokenType.DROP}`);
+    // Expect TABLE keyword
+    if (!this.expect(state, TokenType.TABLE)) {
+      throw new Error('Expected TABLE keyword');
     }
 
-    AST.action = this.tokens[this.pointer - 1].value as 'ADD' | 'DROP';
-    console.log(this.tokens);
+    // Expect table name
+    if (!this.expect(state, TokenType.IDENTIFIER)) {
+      throw new Error('Expected table name');
+    }
+    AST.name = this.getPreviousTokenValue(state);
 
-    if (!this.expect(TokenType.COLUMN)) {
-      throw new Error(`Expected ${TokenType.COLUMN}`);
+    // Expect ADD or DROP (Not Yet)
+    if (this.expect(state, TokenType.ADD)) {
+      AST.action = 'ADD';
+    } else if (this.expect(state, TokenType.DROP)) {
+      AST.action = 'DROP'; // (Not Yet)
+    } else {
+      throw new Error('Expected ADD or DROP keyword');
     }
 
-    if (!this.expect(TokenType.IDENTIFIER)) {
-      throw new Error(`Expected ${TokenType.IDENTIFIER}`);
+    // Expect column name
+    if (!this.expect(state, TokenType.IDENTIFIER)) {
+      throw new Error('Expected column name');
     }
-    AST.columnName = this.tokens[this.pointer - 1].value as string;
+    AST.columnName = this.getPreviousTokenValue(state);
 
-    if (!this.expect(TokenType.DATATYPE)) {
-      throw new Error(`Expected ${TokenType.DATATYPE}`);
-    }
-    AST.dataType = this.tokens[this.pointer - 1].value as DataType;
-
-    if (!this.expect(TokenType.SEMI_COLON)) {
-      throw new Error(`Expected ${TokenType.SEMI_COLON}`);
-    }
-
-    // SEMANTIC ANALYSIS
-    // Check the existence of the table & column
-
-    const isTableExist =
-      await this.semanticAnalyzer.checkTableExistenceInCurrentDB(AST.name);
-
-    if (!isTableExist) {
-      throw new Error(`Table ${AST.name} is not exist`);
+    // Only expect datatype for ADD action
+    if (AST.action === 'ADD') {
+      if (!this.expect(state, TokenType.DATATYPE)) {
+        throw new Error('Expected data type');
+      }
+      AST.dataType = this.getPreviousDataType(state);
     }
 
-    const isColumnExist = await this.semanticAnalyzer.checkColumnExistence(
-      AST.name,
-      AST.columnName,
-    );
+    // Expect semicolon
+    this.expectSemicolon(state);
 
-    if (isColumnExist) {
-      throw new Error(`Column ${AST.columnName} is already exist`);
+    // Semantic analyiss
+    await this.validateTableExists(AST.name);
+
+    if (AST.action === 'ADD') {
+      await this.validateColumnNotExists(AST.name, AST.columnName);
+    } else {
+      await this.validateColumnExists(AST.name, AST.columnName);
     }
 
     return AST;

@@ -1,88 +1,73 @@
 import { Injectable } from '@nestjs/common';
-import { BaseParser } from '../base-parser';
-import { DropDatabaseAST, DropTableAST } from '../../../common/types/ast.type';
+import { BaseParser, ParserState } from '../base-parser';
 import { TokenType } from '../../../common/enums/token-type.enum';
 import { IToken } from '../../../common/types/token.types';
-import { SemanticAnalyzerService } from '../../semantic-analyzer/semantic-analyzer.service';
+import { DropDatabaseAST, DropTableAST } from 'src/common/types/ast.type';
+import { SchemaLogic } from 'src/modules/storage/schema/schema.logic';
 
 @Injectable()
 export class DropParser extends BaseParser {
-  constructor(private readonly semanticAnalyzer: SemanticAnalyzerService) {
-    super();
+  constructor(schemaLogic: SchemaLogic) {
+    super(schemaLogic);
   }
 
-  async parse(tokens: IToken[], pointer: number): Promise<DropDatabaseAST | DropTableAST> {
-    this.tokens = tokens;
-    this.pointer = pointer;
+  async parse(
+    tokens: IToken[],
+    pointer: number,
+  ): Promise<DropDatabaseAST | DropTableAST> {
+    const state: ParserState = { tokens, pointer };
 
-    // DETERMINATION BASED ON THE CURRENT TOKEN (DATABASE OR TABLE)
-    return this.tokens[this.pointer].type === TokenType.DATABASE
-      ? await this.parseDropDatabase()
-      : await this.parseDropTable();
+    return state.tokens[state.pointer].type === TokenType.DATABASE
+      ? await this.parseDropDatabase(state)
+      : await this.parseDropTable(state);
   }
 
-  // parse the tokens by expect the proper tokens which match the correct flow of the drop database statement and returns the AST which includes the database name
-  private async parseDropDatabase(): Promise<DropDatabaseAST> {
+  private async parseDropDatabase(
+    state: ParserState,
+  ): Promise<DropDatabaseAST> {
     const AST: DropDatabaseAST = {
       type: TokenType.DROP,
       structure: TokenType.DATABASE,
       name: '',
     };
 
-    // expect the DATABASE keyword
-    if (!this.expect(TokenType.DATABASE)) {
-      throw new Error(`Expected ${TokenType.TABLE}`);
+    if (!this.expect(state, TokenType.DATABASE)) {
+      throw new Error('Expected DATABASE keyword');
     }
 
-    // expect the database name
-    if (!this.expect(TokenType.IDENTIFIER)) {
-      throw new Error(`Expected ${TokenType.IDENTIFIER}`);
+    if (!this.expect(state, TokenType.IDENTIFIER)) {
+      throw new Error('Expected database name');
     }
-    // assign the database name
-    AST.name = this.tokens[this.pointer - 1].value as string;
 
-    // semantic analysis
-    // check database existence
-    const isExist = await this.semanticAnalyzer.checkDatabaseExistence(
-      AST.name,
-    );
+    AST.name = this.getPreviousTokenValue(state);
+    this.expectSemicolon(state);
 
-    if (!isExist) {
-      throw new Error(`Database ${AST.name} not exist`);
-    }
+    // symantic analysis
+    await this.validateDatabaseExists(AST.name);
 
     return AST;
   }
 
-  // parse the tokens by expect the proper tokens which match the correct flow of the drop table statement and returns the AST which includes the table name
-  private async parseDropTable(): Promise<DropTableAST> {
+  private async parseDropTable(state: ParserState): Promise<DropTableAST> {
     const AST: DropTableAST = {
       type: TokenType.DROP,
       structure: TokenType.TABLE,
       name: '',
     };
 
-    // expect the TABLE keyword after the DROP keyword
-    if (!this.expect(TokenType.TABLE)) {
-      throw new Error(`Expected ${TokenType.TABLE}`);
+    if (!this.expect(state, TokenType.TABLE)) {
+      throw new Error('Expected TABLE keyword');
     }
 
-    // expect the table name after the TABLE keyword
-    if (!this.expect(TokenType.IDENTIFIER)) {
-      throw new Error(`Expected ${TokenType.IDENTIFIER}`);
+    if (!this.expect(state, TokenType.IDENTIFIER)) {
+      throw new Error('Expected table name');
     }
-    // assign the table name into the AST
-    AST.name = this.tokens[this.pointer - 1].value as string;
 
-    // semantic analysis
-    // check table existence
-    const isExist = await this.semanticAnalyzer.checkTableExistenceInCurrentDB(
-      AST.name,
-    );
+    AST.name = this.getPreviousTokenValue(state);
+    this.expectSemicolon(state);
 
-    if (!isExist) {
-      throw new Error(`Table ${AST.name} is not exist`);
-    }
+    // symantic analysis
+    await this.validateTableExists(AST.name);
 
     return AST;
   }

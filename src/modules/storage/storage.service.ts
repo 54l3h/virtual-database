@@ -13,96 +13,55 @@ import type {
   SelectAST,
   UpdateAST,
 } from 'src/common/types/ast.type';
-import type { ISchema, IColumn } from '../../common/types/schema.types';
+import type { ISchema } from '../../common/types/schema.types';
 import { SchemaLogic } from './schema/schema.logic';
-import { RowLogic } from './access_methods/row-logic';
 import { ConnectionLogic } from './connection/connection-logic';
+import { SelectHandler } from './dml/select.handler';
+import { InsertHandler } from './dml/insert.handler';
+import { UpdateHandler } from './dml/update.handler';
+import { DeleteHandler } from './dml/delete.handler';
 
 @Injectable()
 export class StorageService {
   constructor(
     private schemaLogic: SchemaLogic,
     private connectionLogic: ConnectionLogic,
-    private rowLogic: RowLogic,
+    private readonly selectHandler: SelectHandler,
+    private readonly insertHandler: InsertHandler,
+    private readonly updateHandler: UpdateHandler,
+    private readonly deleteHandler: DeleteHandler,
   ) {}
 
   // databases directory
   private readonly databasesPath = path.join(process.cwd(), 'databases');
-
-  // TODO:
-  async checkDatabaseExistence(databaseName: string): Promise<boolean> {
-    const databaseDirPath = path.join(this.databasesPath, databaseName);
-    try {
-      await fs.access(databaseDirPath);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  async createDatabase(AST: CreateDatabaseAST): Promise<any> {
-    await this.schemaLogic.createDatabasesDir(); // To ignore errors
-    const isExist = await this.checkDatabaseExistence(AST.name);
-    if (isExist) {
-      throw new Error(`Database ${AST.name} already exists`);
-    }
-
-    await this.createDatabaseDir(AST.name);
-
-    return { message: `Database ${AST.name} created successfully` };
-  }
-
-  // check if the table exists into the connected db or not
-  // ! should be moved to the schema logic
-  async checkTableExistsInCurrentDB(tableName: string): Promise<boolean> {
-    const currentDB = await this.connectionLogic.getCurrentDatabase();
-    const schema = await this.schemaLogic.readCurrentDBSchema(currentDB);
-    return schema.tables.some((table) => table.name === tableName);
-  }
 
   /**
    * ! row operations
    */
   async select(AST: SelectAST) {
     const currentDB = await this.connectionLogic.getCurrentDatabase();
-    return await this.rowLogic.findRows(currentDB, AST);
+    return await this.selectHandler.execute(currentDB, AST);
   }
 
   async insert(AST: InsertAST) {
     const currentDB = await this.connectionLogic.getCurrentDatabase();
-    await this.rowLogic.insertRows(currentDB, AST);
-    return { success: true, message: 'Rows inserted' };
+    return await this.insertHandler.execute(currentDB, AST);
   }
 
   async update(AST: UpdateAST) {
     const currentDB = await this.connectionLogic.getCurrentDatabase();
-    return await this.rowLogic.updateRows(currentDB, AST);
+    return await this.updateHandler.execute(currentDB, AST);
   }
 
   async delete(AST: DeleteAST) {
     const currentDB = await this.connectionLogic.getCurrentDatabase();
-    return await this.rowLogic.deleteRows(currentDB, AST);
+    return await this.deleteHandler.execute(currentDB, AST);
   }
 
-  // for altering the table
-  // TODO:
-  // add column => change the structure of the database schema
-  // drop column => change the structure of the database schema
   async alterTable(AST: AlterTableAST) {
     const currentDB = await this.connectionLogic.getCurrentDatabase();
     await this.schemaLogic.alterTableStructure(currentDB, AST);
     return { message: `Table ${AST.name} altered` };
-  }
-
-  async dropDatabase(AST: DropDatabaseAST) {
-    const currentDB = await this.connectionLogic.getCurrentDatabase();
-    if (AST.name === currentDB)
-      throw new Error(
-        `You cannot drop the database because you are connected to this db`,
-      );
-
-    await this.schemaLogic.removeDatabase(AST.name);
-    return { message: `Database ${AST.name} dropped` };
   }
 
   async createTable(AST: CreateTableAST) {
@@ -115,6 +74,29 @@ export class StorageService {
     const currentDB = await this.connectionLogic.getCurrentDatabase();
     await this.schemaLogic.removeTable(currentDB, AST.name);
     return { message: `Table ${AST.name} dropped` };
+  }
+
+  async createDatabase(AST: CreateDatabaseAST): Promise<any> {
+    await this.schemaLogic.createDatabasesDir(); // To ignore errors
+    const isExist = await this.schemaLogic.checkDatabaseExistence(AST.name);
+    if (isExist) {
+      throw new Error(`Database ${AST.name} already exists`);
+    }
+
+    await this.createDatabaseDir(AST.name);
+
+    return { message: `Database ${AST.name} created successfully` };
+  }
+
+  async dropDatabase(AST: DropDatabaseAST) {
+    const currentDB = await this.connectionLogic.getCurrentDatabase();
+    if (AST.name === currentDB)
+      throw new Error(
+        `You cannot drop the database because you are connected to this db`,
+      );
+
+    await this.schemaLogic.removeDatabase(AST.name);
+    return { message: `Database ${AST.name} dropped` };
   }
 
   /**
